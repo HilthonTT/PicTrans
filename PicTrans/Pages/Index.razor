@@ -1,7 +1,61 @@
 ﻿@page "/"
+@using SixLabors.ImageSharp.Formats.Png;
+@inject IJSRuntime JSRuntime
 
-<h1>Hello, world!</h1>
+<h1 class="text-center text-uppercase mb-2">Convert your file into a different extension.</h1>
 
-Welcome to your new app.
+<h3>Input your file.</h3>
+<InputFile OnChange="LoadFile" class="form-control"/>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+@if (file is not null)
+{
+    <button class="btn btn-primary" @onclick="ConvertAndDownload">
+        Convert and Download
+    </button>
+}
+
+@code {
+    private long maxFileSize = 1024 * 1024 * 5; // represents 5MB
+    private byte[] convertedFileBytes;
+    private IBrowserFile file;
+    private string selectedExtension = "";
+    private List<string> pictureExtensions = new()
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".ico",
+        ".webp"
+    };
+
+    private void LoadFile(InputFileChangeEventArgs e)
+    {
+        file = e.File;
+    }
+
+    private async Task ConvertAndDownload()
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        using (var stream = file.OpenReadStream())
+        using (var image = await Image.LoadAsync(stream))
+        {
+            using (var convertedStream = new MemoryStream())
+            {
+                await image.SaveAsync(convertedStream, new PngEncoder());
+                convertedStream.Position = 0;
+
+                var convertedImageBase64 = Convert.ToBase64String(convertedStream.ToArray());
+
+                await JSRuntime.InvokeVoidAsync("downloadFile", convertedImageBase64, file.Name);
+            }
+        }
+    }
+}
