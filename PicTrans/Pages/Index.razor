@@ -6,7 +6,7 @@
     <h1 class="text-uppercase text-center">Convert Images</h1>
     <MudGrid>
         <MudItem xs="12" Class="text-center">
-            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles" Accept="images/*">
                 <ButtonTemplate>
                     <MudButton HtmlTag="label"
                                Variant="Variant.Filled"
@@ -34,26 +34,7 @@
         </MudItem>
         <MudItem xs="12">
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
-                <MudCard Style="max-height: 250px;" Class="mb-3 p-2 border-dark">
-                    <MudCardContent>
-                        <MudText>@f.Name</MudText>
-                        <MudText Typo="Typo.body2">@f.Size bytes</MudText>
-                    </MudCardContent>
-                    <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root me-2">
-                        @foreach (var e in pictureExtensions)
-                        {
-                            <MudSelectItem Value="@e">@e</MudSelectItem>
-                        }
-                    </MudSelect>
-                    <MudCardActions Class="justify-content-between">
-                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" OnClick="(() => ConvertImage(f))">
-                            Convert
-                        </MudButton>
-                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Secondary" OnClick="(() => files.Remove(f))">
-                            Remove
-                        </MudButton>
-                    </MudCardActions>
-                </MudCard>
+                <FileComponent File="f" IsDownloadFolder="isDownloadFolder"/>
             </MudVirtualize>
         </MudItem>
         <MudItem xs="12" md="8" lg="6" xl="4">
@@ -136,21 +117,6 @@
                 convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
             }
         }
-        await SaveStates();
-    }
-
-    private async Task ConvertImage(IBrowserFile file)
-    {
-        using (var stream = file.OpenReadStream(maxFileSize))
-        using (var image = await Image.LoadAsync(stream))
-        using (var convertedStream = new MemoryStream())
-        {
-            await GetEncoder(image, convertedStream);
-            convertedStream.Position = 0;
-
-            convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
-        }
-
         await SaveStates();
     }
 

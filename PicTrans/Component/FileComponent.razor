@@ -1,0 +1,164 @@
+﻿<MudCard>
+    <MudCardHeader>
+        <CardHeaderAvatar>
+            @if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                <MudAvatar Color="MudBlazor.Color.Secondary">@File.Name.First()</MudAvatar>
+            }
+            else
+            {
+                <MudAvatar>
+                    <MudImage Src="@sourcePath"></MudImage>
+                </MudAvatar>
+            }
+        </CardHeaderAvatar>
+        <CardHeaderContent>
+            <MudText Typo="Typo.body1">@File.Name</MudText>
+            <MudText Typo="Typo.body2">Size: @File.Size bytes</MudText>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Default" />
+        </CardHeaderActions>
+    </MudCardHeader>
+    @if (string.IsNullOrWhiteSpace(sourcePath))
+    {
+        <MudCardMedia Image="images/pilars.jpg" Height="250" />
+    }
+    else
+    {
+        <MudCardMedia Image="@sourcePath" Height="250" />
+    }
+    <MudCardContent>
+        <MudText Typo="Typo.body2">Last modified @File.LastModified</MudText>
+    </MudCardContent>
+    <MudCardActions>
+        @if (isConverted)
+        {
+            <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Secondary" OnClick="DownloadImage">
+                Download
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" OnClick="ConvertImage">
+                Convert
+            </MudButton>
+        }
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public IBrowserFile File { get; set; }
+
+    [Parameter]
+    [EditorRequired]
+    public bool IsDownloadFolder { get; set; }
+
+    private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
+    private string selectedExtension = ".png";
+    private string sourcePath = "";
+    private bool isConverted = false;
+    private MemoryStream convertedFile;
+    private List<string> pictureExtensions = new()
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp",
+        ".tiff",
+        ".webp",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadThumbnailFile();
+    }
+
+    private async Task LoadThumbnailFile()
+    {
+        using var stream = File.OpenReadStream(maxFileSize);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        byte[] bytes = memoryStream.ToArray();
+        string base64Image = $"data:{File.ContentType};base64,{Convert.ToBase64String(bytes)}";
+        sourcePath = base64Image;
+    }
+
+    private async Task ConvertImage()
+    {
+        using (var stream = File.OpenReadStream(maxFileSize))
+        using (var image = await Image.LoadAsync(stream))
+        using (var convertedStream = new MemoryStream())
+        {
+            await GetEncoder(image, convertedStream);
+            convertedStream.Position = 0;
+
+            convertedFile = new MemoryStream(convertedStream.ToArray());
+        }
+
+        isConverted = true;
+    }
+
+    private async Task DownloadImage()
+    {
+        string filePath = IsDownloadFolder ? GetDefaultDownloadPath(File) : GetPicturesDownloadPath(File);
+
+        using (var outputStream = new FileStream(filePath, FileMode.Create))
+        {
+            await convertedFile.CopyToAsync(outputStream);
+        }
+
+        isConverted = false;
+    }
+
+    private string GetDefaultDownloadPath(IBrowserFile file)
+    {
+        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
+        return Path.Combine(downloadsFolder, "Downloads", fileName);
+    }
+
+    private string GetPicturesDownloadPath(IBrowserFile file)
+    {
+        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
+        return Path.Combine(downloadsFolder, fileName);
+    }
+
+    private async Task GetEncoder(Image image, MemoryStream convertedStream)
+    {
+        switch (selectedExtension)
+        {
+            case ".png":
+                await image.SaveAsPngAsync(convertedStream, new PngEncoder());
+                break;
+
+            case ".jpeg":
+                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
+                break;
+
+            case ".jpg":
+                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
+                break;
+
+            case ".gif":
+                await image.SaveAsGifAsync(convertedStream, new GifEncoder());
+                break;
+
+            case ".bmp":
+                await image.SaveAsBmpAsync(convertedStream, new BmpEncoder());
+                break;
+
+            case ".tiff":
+                await image.SaveAsTiffAsync(convertedStream, new TiffEncoder());
+                break;
+
+            case ".webp":
+                await image.SaveAsWebpAsync(convertedStream, new WebpEncoder());
+                break;
+        }
+    }
+}
