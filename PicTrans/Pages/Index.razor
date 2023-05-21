@@ -1,58 +1,71 @@
 ﻿@page "/"
-@inject IImageData imageData
+@inject ISecureStorage secureStorage
 
-<h1 class="text-center text-uppercase">Convert Images</h1>
 
-<div class="row">
-    <div class="col-xl-12 col-lg-10 col-md-8">
-        <div class="row">
-            <div class="col-6">
-                <InputFile OnChange="LoadFile" multiple class="form-control" />
-                <div class="btn-group">
-                    <button class="btn @GetButtonClass()" @onclick="(() => isDownloadFolder = true)">Download Folder</button>
-                    <button class="btn @GetButtonClass()" @onclick="(() => isDownloadFolder = false)">Picture Folder</button>
-                </div>
-            </div>
-            <div class="col-6">
-                <label>
-                    Convert to:
-                    <InputSelect @bind-Value="selectedExtension" class="form-select">
+<MudContainer>
+    <h1 class="text-uppercase text-center">Convert Images</h1>
+    <MudGrid>
+        <MudItem xs="12" Class="text-center">
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
+                <ButtonTemplate>
+                    <MudButton HtmlTag="label"
+                               Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Class="w-100"
+                               for="@context">
+                        Multiple Files
+                    </MudButton>
+                </ButtonTemplate>
+            </MudFileUpload>
+            <MudButtonGroup Class="mt-2">
+                <MudButton Class="@GetButtonClass(true)" OnClick="@(() => isDownloadFolder = true)">Download Folder</MudButton>
+                <MudButton Class="@GetButtonClass(false)" OnClick="@(() => isDownloadFolder = false)">Picture Folder</MudButton>
+            </MudButtonGroup>
+            <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root text-start">
+                @foreach (var e in pictureExtensions)
+                {
+                    <MudSelectItem Value="@e">@e</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="mt-2" OnClick="ConvertImages">
+                Convert
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12">
+            <MudVirtualize Items="files" Context="f" OverscanCount="10">
+                <MudCard Style="max-height: 250px;" Class="mb-3 p-2 border-dark">
+                    <MudCardContent>
+                        <MudText>@f.Name</MudText>
+                        <MudText Typo="Typo.body2">@f.Size bytes</MudText>
+                    </MudCardContent>
+                    <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root me-2">
                         @foreach (var e in pictureExtensions)
                         {
-                            <option value="@e">@e</option>
+                            <MudSelectItem Value="@e">@e</MudSelectItem>
                         }
-                    </InputSelect>
-                </label>
-                <button class="btn btn-primary" @onclick="ConvertImages">Convert</button>
+                    </MudSelect>
+                    <MudCardActions Class="justify-content-between">
+                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" OnClick="(() => ConvertImage(f))">
+                            Convert
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Secondary" OnClick="(() => files.Remove(f))">
+                            Remove
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudVirtualize>
+        </MudItem>
+        <MudItem xs="12" md="8" lg="6" xl="4">
+            <div class="text-center">
+                @if (convertedImages.Count >= 1)
+                {
+                    <MudButton Class="btn-danger" OnClick="DownloadImages">Download Images</MudButton>
+                }
             </div>
-        </div>
-        <div class="row">
-            <div class="col-10 text-center">
-                <div>
-                    @if (files is not null)
-                    {
-                        @foreach (var f in files)
-                        {
-                            <div class="d-flex align-items-center mt-2">
-                                <span class="me-2">@f.Name</span>
-                                <InputSelect @bind-Value="selectedExtension" class="form-select me-2">
-                                    @foreach (var e in pictureExtensions)
-                                    {
-                                        <option value="@e">@e</option>
-                                    }
-                                </InputSelect>
-                                <button class="btn btn-secondary" @onclick="() => ConvertImage(f)">Convert</button>
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <button class="btn btn-danger" @onclick="DownloadImages">Download Images</button>
-        </div>
-    </div>
-</div>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
 
 
 @code {
@@ -73,15 +86,38 @@
         ".webp",
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStates();
+    }
+
+    private async Task LoadStates()
+    {
+        selectedExtension = await secureStorage.GetAsync(nameof(selectedExtension)) ?? ".png";
+    }
+
+    private async Task SaveStates()
+    {
+        await secureStorage.SetAsync(nameof(selectedExtension), selectedExtension);
+    }
+
     private void LoadFile(InputFileChangeEventArgs e)
     {
         files.Clear();
         files.AddRange(e.GetMultipleFiles());
     }
 
+    private void UploadFiles(IReadOnlyList<IBrowserFile> files)
+    {
+        foreach (var file in files)
+        {
+            this.files.Add(file);
+        }
+    }
+
     private async Task ConvertImages()
     {
-        if (files is null)
+        if (files.Count == 0)
         {
             return;
         }
@@ -92,23 +128,6 @@
         {
             using (var stream = file.OpenReadStream(maxFileSize))
             using (var image = await Image.LoadAsync(stream))
-            {
-                using (var convertedStream = new MemoryStream())
-                {
-                    await GetEncoder(image, convertedStream);
-                    convertedStream.Position = 0;
-
-                    convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
-                }
-            }
-        }
-    }
-
-    private async Task ConvertImage(IBrowserFile file)
-    {
-        using (var stream = file.OpenReadStream(maxFileSize))
-        using (var image = await Image.LoadAsync(stream))
-        {
             using (var convertedStream = new MemoryStream())
             {
                 await GetEncoder(image, convertedStream);
@@ -117,6 +136,22 @@
                 convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
             }
         }
+        await SaveStates();
+    }
+
+    private async Task ConvertImage(IBrowserFile file)
+    {
+        using (var stream = file.OpenReadStream(maxFileSize))
+        using (var image = await Image.LoadAsync(stream))
+        using (var convertedStream = new MemoryStream())
+        {
+            await GetEncoder(image, convertedStream);
+            convertedStream.Position = 0;
+
+            convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
+        }
+
+        await SaveStates();
     }
 
     private async Task DownloadImages()
@@ -154,14 +189,14 @@
         return Path.Combine(downloadsFolder, fileName);
     }
 
-    private string GetButtonClass()
+    private string GetButtonClass(bool isDownload)
     {
-        if (isDownloadFolder)
+        if (isDownloadFolder == isDownload)
         {
-            return "btn-success";
+            return "text-success";
         }
 
-        return "btn-danger";
+        return "text-danger";
     }
 
     private async Task GetEncoder(Image image, MemoryStream convertedStream)
