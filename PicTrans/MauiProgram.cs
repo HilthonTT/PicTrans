@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using PicTrans.Data;
+using PicTrans.Services;
 
 namespace PicTrans;
 
@@ -16,6 +17,7 @@ public static class MauiProgram
 			});
 
 		builder.Services.AddMauiBlazorWebView();
+		builder.Services.AddSingleton<IImageData, ImageData>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
