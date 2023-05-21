@@ -1,24 +1,48 @@
 ﻿@page "/"
-@using SixLabors.ImageSharp.Formats.Png;
-@inject IJSRuntime JSRuntime
 
 <h1 class="text-center text-uppercase mb-2">Convert your file into a different extension.</h1>
 
-<h3>Input your file.</h3>
-<InputFile OnChange="LoadFile" class="form-control"/>
-
-@if (file is not null)
+@if (string.IsNullOrWhiteSpace(errorMessage) is false)
 {
-    <button class="btn btn-primary" @onclick="ConvertAndDownload">
-        Convert and Download
-    </button>
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
 }
+
+<div class="row">
+    <div class="col-10">
+        <div class="btn-group">
+            <button class="btn btn-primary" @onclick="(() => isDownloadFolder = true)">Download folder</button>
+            <button class="btn btn-secondary" @onclick="(() => isDownloadFolder = false)">Picture folder</button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-12 col-lg-10 col-md-8">
+        <div class="row">
+            <InputFile OnChange="LoadFile" class="form-control"/>
+            @if (file is not null)
+            {
+                <button class="btn btn-primary" @onclick="ConvertImage">Convert File</button>
+            }
+        </div>
+        <div class="row">
+            @if (convertedImage is not null)
+            {
+                <button class="btn btn-primary" @onclick="DownloadImage">Download</button>
+            }
+        </div>
+    </div>
+</div>
 
 @code {
     private long maxFileSize = 1024 * 1024 * 5; // represents 5MB
-    private byte[] convertedFileBytes;
     private IBrowserFile file;
+    private MemoryStream convertedImage;
     private string selectedExtension = "";
+    private string errorMessage = "";
+    private bool isDownloadFolder = true;
     private List<string> pictureExtensions = new()
     {
         ".jpg",
@@ -37,14 +61,14 @@
         file = e.File;
     }
 
-    private async Task ConvertAndDownload()
+    private async Task ConvertImage()
     {
         if (file is null)
         {
             return;
         }
 
-        using (var stream = file.OpenReadStream())
+        using (var stream = file.OpenReadStream(maxFileSize))
         using (var image = await Image.LoadAsync(stream))
         {
             using (var convertedStream = new MemoryStream())
@@ -52,10 +76,45 @@
                 await image.SaveAsync(convertedStream, new PngEncoder());
                 convertedStream.Position = 0;
 
-                var convertedImageBase64 = Convert.ToBase64String(convertedStream.ToArray());
-
-                await JSRuntime.InvokeVoidAsync("downloadFile", convertedImageBase64, file.Name);
+                // Store the converted image
+                convertedImage = new MemoryStream(convertedStream.ToArray());
             }
         }
+    }
+
+    private async Task DownloadImage()
+    {
+        if (convertedImage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string filePath = isDownloadFolder ? GetDefaultDownloadPath() : GetPicturesDownloadPath();
+
+            using (var outputStream = new FileStream(filePath, FileMode.Create))
+            {
+                await convertedImage.CopyToAsync(outputStream);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetDefaultDownloadPath()
+    {
+        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string fileName = $"{file.Name}.png";
+        return Path.Combine(downloadsFolder, "Downloads", fileName);
+    }
+
+    private string GetPicturesDownloadPath()
+    {
+        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        string fileName = $"{file.Name}.png";
+        return Path.Combine(downloadsFolder, fileName);
     }
 }
