@@ -1,48 +1,67 @@
 ﻿@page "/"
+@inject IImageData imageData
 
-<h1 class="text-center text-uppercase mb-2">Convert your file into a different extension.</h1>
-
-@if (string.IsNullOrWhiteSpace(errorMessage) is false)
-{
-    <div class="alert alert-danger" role="alert">
-        @errorMessage
-    </div>
-}
-
-<div class="row">
-    <div class="col-10">
-        <div class="btn-group">
-            <button class="btn btn-primary" @onclick="(() => isDownloadFolder = true)">Download folder</button>
-            <button class="btn btn-secondary" @onclick="(() => isDownloadFolder = false)">Picture folder</button>
-        </div>
-    </div>
-</div>
+<h1 class="text-center text-uppercase">Convert Images</h1>
 
 <div class="row">
     <div class="col-xl-12 col-lg-10 col-md-8">
         <div class="row">
-            <InputFile OnChange="LoadFile" class="form-control"/>
-            @if (file is not null)
-            {
-                <button class="btn btn-primary" @onclick="ConvertImage">Convert File</button>
-            }
+            <div class="col-6">
+                <InputFile OnChange="LoadFile" multiple class="form-control" />
+                <div class="btn-group">
+                    <button class="btn @GetButtonClass()" @onclick="(() => isDownloadFolder = true)">Download Folder</button>
+                    <button class="btn @GetButtonClass()" @onclick="(() => isDownloadFolder = false)">Picture Folder</button>
+                </div>
+            </div>
+            <div class="col-6">
+                <label>
+                    Convert to:
+                    <InputSelect @bind-Value="selectedExtension" class="form-select">
+                        @foreach (var e in pictureExtensions)
+                        {
+                            <option value="@e">@e</option>
+                        }
+                    </InputSelect>
+                </label>
+                <button class="btn btn-primary" @onclick="ConvertImages">Convert</button>
+            </div>
         </div>
         <div class="row">
-            @if (convertedImage is not null)
-            {
-                <button class="btn btn-primary" @onclick="DownloadImage">Download</button>
-            }
+            <div class="col-10 text-center">
+                <div>
+                    @if (files is not null)
+                    {
+                        @foreach (var f in files)
+                        {
+                            <div class="d-flex align-items-center mt-2">
+                                <span class="me-2">@f.Name</span>
+                                <InputSelect @bind-Value="selectedExtension" class="form-select me-2">
+                                    @foreach (var e in pictureExtensions)
+                                    {
+                                        <option value="@e">@e</option>
+                                    }
+                                </InputSelect>
+                                <button class="btn btn-secondary" @onclick="() => ConvertImage(f)">Convert</button>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <button class="btn btn-danger" @onclick="DownloadImages">Download Images</button>
         </div>
     </div>
 </div>
 
+
 @code {
-    private long maxFileSize = 1024 * 1024 * 5; // represents 5MB
-    private IBrowserFile file;
-    private MemoryStream convertedImage;
-    private string selectedExtension = "";
+    private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
+    private string selectedExtension = ".png";
     private string errorMessage = "";
     private bool isDownloadFolder = true;
+    private List<IBrowserFile> files = new();
+    private List<MemoryStream> convertedImages = new();
     private List<string> pictureExtensions = new()
     {
         ".jpg",
@@ -51,70 +70,131 @@
         ".gif",
         ".bmp",
         ".tiff",
-        ".tif",
-        ".ico",
-        ".webp"
+        ".webp",
     };
 
     private void LoadFile(InputFileChangeEventArgs e)
     {
-        file = e.File;
+        files.Clear();
+        files.AddRange(e.GetMultipleFiles());
     }
 
-    private async Task ConvertImage()
+    private async Task ConvertImages()
     {
-        if (file is null)
+        if (files is null)
         {
             return;
         }
 
+        convertedImages.Clear();
+
+        foreach (var file in files)
+        {
+            using (var stream = file.OpenReadStream(maxFileSize))
+            using (var image = await Image.LoadAsync(stream))
+            {
+                using (var convertedStream = new MemoryStream())
+                {
+                    await GetEncoder(image, convertedStream);
+                    convertedStream.Position = 0;
+
+                    convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
+                }
+            }
+        }
+    }
+
+    private async Task ConvertImage(IBrowserFile file)
+    {
         using (var stream = file.OpenReadStream(maxFileSize))
         using (var image = await Image.LoadAsync(stream))
         {
             using (var convertedStream = new MemoryStream())
             {
-                await image.SaveAsync(convertedStream, new PngEncoder());
+                await GetEncoder(image, convertedStream);
                 convertedStream.Position = 0;
 
-                // Store the converted image
-                convertedImage = new MemoryStream(convertedStream.ToArray());
+                convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
             }
         }
     }
 
-    private async Task DownloadImage()
+    private async Task DownloadImages()
     {
-        if (convertedImage is null)
+        if (convertedImages.Count == 0 || files.Count == 0)
         {
             return;
         }
 
-        try
+        for (int i = 0; i < files.Count; i++)
         {
-            string filePath = isDownloadFolder ? GetDefaultDownloadPath() : GetPicturesDownloadPath();
+            var file = files[i];
+            var convertedImage = convertedImages[i];
+
+            string filePath = isDownloadFolder ? GetDefaultDownloadPath(file) : GetPicturesDownloadPath(file);
 
             using (var outputStream = new FileStream(filePath, FileMode.Create))
             {
                 await convertedImage.CopyToAsync(outputStream);
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = ex.Message;
-        }
     }
 
-    private string GetDefaultDownloadPath()
+    private string GetDefaultDownloadPath(IBrowserFile file)
     {
         string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string fileName = $"{file.Name}.png";
+        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
         return Path.Combine(downloadsFolder, "Downloads", fileName);
     }
 
-    private string GetPicturesDownloadPath()
+    private string GetPicturesDownloadPath(IBrowserFile file)
     {
         string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-        string fileName = $"{file.Name}.png";
+        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
         return Path.Combine(downloadsFolder, fileName);
+    }
+
+    private string GetButtonClass()
+    {
+        if (isDownloadFolder)
+        {
+            return "btn-success";
+        }
+
+        return "btn-danger";
+    }
+
+    private async Task GetEncoder(Image image, MemoryStream convertedStream)
+    {
+        switch (selectedExtension)
+        {
+            case ".png":
+                await image.SaveAsPngAsync(convertedStream, new PngEncoder());
+                break;
+
+            case ".jpeg":
+                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
+                break;
+
+            case ".jpg":
+                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
+                break;
+
+            case ".gif":
+                await image.SaveAsGifAsync(convertedStream, new GifEncoder());
+                break;
+
+            case ".bmp":
+                await image.SaveAsBmpAsync(convertedStream, new BmpEncoder());
+                break;
+
+            case ".tiff":
+                await image.SaveAsTiffAsync(convertedStream, new TiffEncoder());
+                break;
+
+            case ".webp":
+                await image.SaveAsWebpAsync(convertedStream, new WebpEncoder());
+                break;
+        }
     }
 }
