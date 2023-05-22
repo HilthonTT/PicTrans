@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject ISecureStorage secureStorage
 @inject IImageService imageService
+@inject IDialogService dialogService
 
 <MudContainer>
     <h1 class="text-uppercase text-center">Convert Images</h1>
@@ -43,7 +44,7 @@
         </MudItem>
         <MudItem xs="12">
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
-                <FileComponent File="f" IsDownloadFolder="isDownloadFolder"/>
+                <File File="f" IsDownloadFolder="isDownloadFolder"/>
             </MudVirtualize>
         </MudItem>
     </MudGrid>
@@ -51,11 +52,14 @@
 
 
 @code {
+    private IDialogReference dialogReference;
+
     private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
     private string selectedExtension = ".png";
     private string errorMessage = "";
     private bool isDownloadFolder = true;
     private bool isConverted = false;
+    private bool isLoadingFilesOpen = true;
     private List<IBrowserFile> files = new();
     private List<MemoryStream> convertedImages = new();
     private List<string> pictureExtensions = new();
@@ -78,10 +82,23 @@
 
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
     {
+        OpenDialog();
         foreach (var file in files)
         {
             this.files.Add(file);
         }
+        CloseDialog();
+    }
+
+    private void OpenDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        dialogReference = dialogService.Show<FileDialog>("Loading files.", options);
+    }
+
+    private void CloseDialog()
+    {
+        dialogReference.Close(DialogResult.Ok(true));
     }
 
     private async Task ConvertImages()
