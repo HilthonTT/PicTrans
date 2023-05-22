@@ -1,6 +1,6 @@
 ﻿@page "/"
 @inject ISecureStorage secureStorage
-
+@inject IImageService imageService
 
 <MudContainer>
     <h1 class="text-uppercase text-center">Convert Images</h1>
@@ -28,22 +28,23 @@
                     <MudSelectItem Value="@e">@e</MudSelectItem>
                 }
             </MudSelect>
-            <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="mt-2" OnClick="ConvertImages">
-                Convert
-            </MudButton>
+            @if (isConverted is false)
+            {
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="mt-2" OnClick="ConvertImages">
+                    Convert
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Secondary" Class="mt-2" OnClick="DownloadImages">
+                    Download
+                </MudButton>
+            }
         </MudItem>
         <MudItem xs="12">
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
                 <FileComponent File="f" IsDownloadFolder="isDownloadFolder"/>
             </MudVirtualize>
-        </MudItem>
-        <MudItem xs="12" md="8" lg="6" xl="4">
-            <div class="text-center">
-                @if (convertedImages.Count >= 1)
-                {
-                    <MudButton Class="btn-danger" OnClick="DownloadImages">Download Images</MudButton>
-                }
-            </div>
         </MudItem>
     </MudGrid>
 </MudContainer>
@@ -54,21 +55,14 @@
     private string selectedExtension = ".png";
     private string errorMessage = "";
     private bool isDownloadFolder = true;
+    private bool isConverted = false;
     private List<IBrowserFile> files = new();
     private List<MemoryStream> convertedImages = new();
-    private List<string> pictureExtensions = new()
-    {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".bmp",
-        ".tiff",
-        ".webp",
-    };
+    private List<string> pictureExtensions = new();
 
     protected override async Task OnInitializedAsync()
     {
+        pictureExtensions = imageService.GetPictureFormats();
         await LoadStates();
     }
 
@@ -82,12 +76,6 @@
         await secureStorage.SetAsync(nameof(selectedExtension), selectedExtension);
     }
 
-    private void LoadFile(InputFileChangeEventArgs e)
-    {
-        files.Clear();
-        files.AddRange(e.GetMultipleFiles());
-    }
-
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
     {
         foreach (var file in files)
@@ -98,61 +86,73 @@
 
     private async Task ConvertImages()
     {
-        if (files.Count == 0)
+        try
         {
-            return;
-        }
-
-        convertedImages.Clear();
-
-        foreach (var file in files)
-        {
-            using (var stream = file.OpenReadStream(maxFileSize))
-            using (var image = await Image.LoadAsync(stream))
-            using (var convertedStream = new MemoryStream())
+            if (files.Count == 0)
             {
-                await GetEncoder(image, convertedStream);
-                convertedStream.Position = 0;
-
-                convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
+                return;
             }
+
+            convertedImages.Clear();
+
+            foreach (var file in files)
+            {
+                using (var stream = file.OpenReadStream(maxFileSize))
+                using (var image = await Image.LoadAsync(stream))
+                using (var convertedStream = new MemoryStream())
+                {
+                    await imageService.GetEncoderAsync(image, convertedStream, selectedExtension);
+                    convertedStream.Position = 0;
+
+                    convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
+                }
+            }
+
+            await SaveStates();
+            isConverted = true;
         }
-        await SaveStates();
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
     }
 
     private async Task DownloadImages()
     {
-        if (convertedImages.Count == 0 || files.Count == 0)
+        try
         {
-            return;
-        }
-
-        for (int i = 0; i < files.Count; i++)
-        {
-            var file = files[i];
-            var convertedImage = convertedImages[i];
-
-            string filePath = isDownloadFolder ? GetDefaultDownloadPath(file) : GetPicturesDownloadPath(file);
-
-            using (var outputStream = new FileStream(filePath, FileMode.Create))
+            if (convertedImages.Count == 0 || files.Count == 0)
             {
-                await convertedImage.CopyToAsync(outputStream);
+                return;
             }
+
+            for (int i = 0; i < files.Count; i++)
+            {
+                var file = files[i];
+                var convertedImage = convertedImages[i];
+
+                string filePath = "";
+                if (isDownloadFolder)
+                {
+                    filePath = imageService.GetDefaultDownloadPath(file, selectedExtension);
+                }
+                else
+                {
+                    filePath = imageService.GetPicturesDownloadPath(file, selectedExtension);
+                }
+
+                using (var outputStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await convertedImage.CopyToAsync(outputStream);
+                }
+            }
+
+            isConverted = false;
         }
-    }
-
-    private string GetDefaultDownloadPath(IBrowserFile file)
-    {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, "Downloads", fileName);
-    }
-
-    private string GetPicturesDownloadPath(IBrowserFile file)
-    {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, fileName);
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
     }
 
     private string GetButtonClass(bool isDownload)
@@ -163,39 +163,5 @@
         }
 
         return "text-danger";
-    }
-
-    private async Task GetEncoder(Image image, MemoryStream convertedStream)
-    {
-        switch (selectedExtension)
-        {
-            case ".png":
-                await image.SaveAsPngAsync(convertedStream, new PngEncoder());
-                break;
-
-            case ".jpeg":
-                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
-                break;
-
-            case ".jpg":
-                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
-                break;
-
-            case ".gif":
-                await image.SaveAsGifAsync(convertedStream, new GifEncoder());
-                break;
-
-            case ".bmp":
-                await image.SaveAsBmpAsync(convertedStream, new BmpEncoder());
-                break;
-
-            case ".tiff":
-                await image.SaveAsTiffAsync(convertedStream, new TiffEncoder());
-                break;
-
-            case ".webp":
-                await image.SaveAsWebpAsync(convertedStream, new WebpEncoder());
-                break;
-        }
     }
 }

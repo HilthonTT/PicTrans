@@ -1,4 +1,6 @@
-﻿<MudCard>
+﻿@inject IImageService imageService
+
+<MudCard>
     <MudCardHeader>
         <CardHeaderAvatar>
             @if (string.IsNullOrWhiteSpace(sourcePath))
@@ -61,20 +63,12 @@
     private string sourcePath = "";
     private bool isConverted = false;
     private MemoryStream convertedFile;
-    private List<string> pictureExtensions = new()
-    {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".bmp",
-        ".tiff",
-        ".webp",
-    };
+    private List<string> pictureExtensions = new();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadThumbnailFile();
+        pictureExtensions = imageService.GetPictureFormats();
     }
 
     private async Task LoadThumbnailFile()
@@ -93,7 +87,7 @@
         using (var image = await Image.LoadAsync(stream))
         using (var convertedStream = new MemoryStream())
         {
-            await GetEncoder(image, convertedStream);
+            await imageService.GetEncoderAsync(image, convertedStream, selectedExtension);
             convertedStream.Position = 0;
 
             convertedFile = new MemoryStream(convertedStream.ToArray());
@@ -104,7 +98,15 @@
 
     private async Task DownloadImage()
     {
-        string filePath = IsDownloadFolder ? GetDefaultDownloadPath(File) : GetPicturesDownloadPath(File);
+        string filePath = "";
+        if (IsDownloadFolder)
+        {
+            filePath = imageService.GetDefaultDownloadPath(File, selectedExtension);
+        }
+        else
+        {
+            filePath = imageService.GetPicturesDownloadPath(File, selectedExtension);
+        }
 
         using (var outputStream = new FileStream(filePath, FileMode.Create))
         {
@@ -112,53 +114,5 @@
         }
 
         isConverted = false;
-    }
-
-    private string GetDefaultDownloadPath(IBrowserFile file)
-    {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, "Downloads", fileName);
-    }
-
-    private string GetPicturesDownloadPath(IBrowserFile file)
-    {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, fileName);
-    }
-
-    private async Task GetEncoder(Image image, MemoryStream convertedStream)
-    {
-        switch (selectedExtension)
-        {
-            case ".png":
-                await image.SaveAsPngAsync(convertedStream, new PngEncoder());
-                break;
-
-            case ".jpeg":
-                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
-                break;
-
-            case ".jpg":
-                await image.SaveAsJpegAsync(convertedStream, new JpegEncoder());
-                break;
-
-            case ".gif":
-                await image.SaveAsGifAsync(convertedStream, new GifEncoder());
-                break;
-
-            case ".bmp":
-                await image.SaveAsBmpAsync(convertedStream, new BmpEncoder());
-                break;
-
-            case ".tiff":
-                await image.SaveAsTiffAsync(convertedStream, new TiffEncoder());
-                break;
-
-            case ".webp":
-                await image.SaveAsWebpAsync(convertedStream, new WebpEncoder());
-                break;
-        }
     }
 }
