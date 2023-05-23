@@ -5,7 +5,7 @@
         <CardHeaderAvatar>
             @if (string.IsNullOrWhiteSpace(sourcePath))
             {
-                <MudAvatar Color="MudBlazor.Color.Secondary">@File.Name.First()</MudAvatar>
+                <MudAvatar Color="MudBlazor.Color.Secondary">@BrowserFile.Name.First()</MudAvatar>
             }
             else
             {
@@ -15,8 +15,8 @@
             }
         </CardHeaderAvatar>
         <CardHeaderContent>
-            <MudText Typo="Typo.body1">@File.Name</MudText>
-            <MudText Typo="Typo.body2">Size: @File.Size bytes</MudText>
+            <MudText Typo="Typo.body1">@BrowserFile.Name</MudText>
+            <MudText Typo="Typo.body2">Size: @BrowserFile.Size bytes</MudText>
         </CardHeaderContent>
         <CardHeaderActions>
             <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Default" />
@@ -31,7 +31,7 @@
         <MudCardMedia Image="@sourcePath" Height="250" />
     }
     <MudCardContent>
-        <MudText Typo="Typo.body2">Last modified @File.LastModified</MudText>
+        <MudText Typo="Typo.body2">Last modified @BrowserFile.LastModified</MudText>
     </MudCardContent>
     <MudCardActions>
         @if (isConverted)
@@ -52,7 +52,7 @@
 @code {
     [Parameter]
     [EditorRequired]
-    public IBrowserFile File { get; set; }
+    public IBrowserFile BrowserFile { get; set; }
 
     [Parameter]
     [EditorRequired]
@@ -73,17 +73,17 @@
 
     private async Task LoadThumbnailFile()
     {
-        using var stream = File.OpenReadStream(maxFileSize);
+        using var stream = BrowserFile.OpenReadStream(maxFileSize);
         using var memoryStream = new MemoryStream();
         await stream.CopyToAsync(memoryStream);
         byte[] bytes = memoryStream.ToArray();
-        string base64Image = $"data:{File.ContentType};base64,{Convert.ToBase64String(bytes)}";
+        string base64Image = $"data:{BrowserFile.ContentType};base64,{Convert.ToBase64String(bytes)}";
         sourcePath = base64Image;
     }
 
     private async Task ConvertImage()
     {
-        using (var stream = File.OpenReadStream(maxFileSize))
+        using (var stream = BrowserFile.OpenReadStream(maxFileSize))
         using (var image = await Image.LoadAsync(stream))
         using (var convertedStream = new MemoryStream())
         {
@@ -101,11 +101,11 @@
         string filePath = "";
         if (IsDownloadFolder)
         {
-            filePath = imageService.GetDefaultDownloadPath(File, selectedExtension);
+            filePath = imageService.GetDefaultDownloadPath(BrowserFile, selectedExtension);
         }
         else
         {
-            filePath = imageService.GetPicturesDownloadPath(File, selectedExtension);
+            filePath = imageService.GetPicturesDownloadPath(BrowserFile, selectedExtension);
         }
 
         using (var outputStream = new FileStream(filePath, FileMode.Create))

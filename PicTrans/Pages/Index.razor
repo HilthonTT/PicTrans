@@ -5,9 +5,16 @@
 
 <MudContainer>
     <h1 class="text-uppercase text-center">Convert Images</h1>
+    @if (string.IsNullOrWhiteSpace(errorMessage) is false)
+    {
+        <MudAlert Severity="@((Severity)Enum.Parse(typeof(Severity), alertClass))">
+            @errorMessage
+        </MudAlert>
+    }
     <MudGrid>
         <MudItem xs="12" Class="text-center">
-            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles" Accept="images/*">
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles" 
+                Accept=".png;.jpeg.;.jpg;.gif;.bmp;.tiff;.webp;">
                 <ButtonTemplate>
                     <MudButton HtmlTag="label"
                                Variant="Variant.Filled"
@@ -29,22 +36,38 @@
                     <MudSelectItem Value="@e">@e</MudSelectItem>
                 }
             </MudSelect>
-            @if (isConverted is false)
-            {
-                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" Class="mt-2" OnClick="ConvertImages">
-                    Convert
-                </MudButton>
-            }
-            else
-            {
-                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Secondary" Class="mt-2" OnClick="DownloadImages">
-                    Download
-                </MudButton>
-            }
+            <MudText Align="Align.Center" Class="mt-2">@progress.ToString("0")%</MudText>
+            <MudProgressLinear Color="MudBlazor.Color.Primary" Buffer="true" Value="progress" BufferValue="bufferValue" Class="my-7" />
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <MudText Align="Align.Start" Class="mt-2">@GetFilesCount()</MudText>
+                </div>
+                <div class="center-children">
+                    <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
+                        @if (isConverted is false)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OnClick="ConvertImages">
+                                Convert
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" OnClick="DownloadImages">
+                                Download
+                            </MudButton>
+                        }
+                        @if (files.Count > 0)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ClearImages">Clear</MudButton>
+                        }
+                    </MudButtonGroup>
+                </div>
+                <div></div> <!-- Add an empty div to create space at the end -->
+            </div>
         </MudItem>
         <MudItem xs="12">
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
-                <File File="f" IsDownloadFolder="isDownloadFolder"/>
+                <File BrowserFile="f" IsDownloadFolder="isDownloadFolder"/>
             </MudVirtualize>
         </MudItem>
     </MudGrid>
@@ -52,14 +75,15 @@
 
 
 @code {
-    private IDialogReference dialogReference;
-
-    private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
+    private const long maxFileSize = 1024 * 1024 * 500; // represents 500MB
     private string selectedExtension = ".png";
     private string errorMessage = "";
+    private string alertClass = "";
+    private int loadedFilesCount = 0;
+    private double progress = 0;
+    private double bufferValue = 0;
     private bool isDownloadFolder = true;
     private bool isConverted = false;
-    private bool isLoadingFilesOpen = true;
     private List<IBrowserFile> files = new();
     private List<MemoryStream> convertedImages = new();
     private List<string> pictureExtensions = new();
@@ -82,31 +106,24 @@
 
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
     {
-        OpenDialog();
+        isConverted = false;
         foreach (var file in files)
         {
             this.files.Add(file);
+            loadedFilesCount = this.files.Count;
+            CalculateProgress();
         }
-        CloseDialog();
-    }
-
-    private void OpenDialog()
-    {
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-        dialogReference = dialogService.Show<FileDialog>("Loading files.", options);
-    }
-
-    private void CloseDialog()
-    {
-        dialogReference.Close(DialogResult.Ok(true));
     }
 
     private async Task ConvertImages()
     {
         try
         {
+            errorMessage = "";
             if (files.Count == 0)
             {
+                GetAlertSeverity("Warning");
+                errorMessage = "No files to convert.";
                 return;
             }
 
@@ -130,6 +147,7 @@
         }
         catch (Exception ex)
         {
+            GetAlertSeverity("Error");
             errorMessage = ex.Message;
         }
     }
@@ -138,8 +156,11 @@
     {
         try
         {
+            errorMessage = "";
             if (convertedImages.Count == 0 || files.Count == 0)
             {
+                GetAlertSeverity("Warning");
+                errorMessage = "No converted files to download.";
                 return;
             }
 
@@ -168,6 +189,7 @@
         }
         catch (Exception ex)
         {
+            GetAlertSeverity("Error");
             errorMessage = ex.Message;
         }
     }
@@ -180,5 +202,57 @@
         }
 
         return "text-danger";
+    }
+
+    private void GetAlertSeverity(string alert)
+    {
+        string output = alert switch
+        {
+            "Normal" => "Severity.Normal",
+            "Info" => "Severity.Info",
+            "Success" => "Severity.Success",
+            "Warning" => "Severity.Warning",
+            "Error" => "Severity.Error",
+            _ => "Severity.Info",
+        };
+
+        alertClass = alert;
+    }
+
+    private string GetFilesCount()
+    {
+        string output = files?.Count switch
+        {
+            0 => "0 files",
+            1 => "1 file",
+            _ => $"{files?.Count} files",
+        };
+
+        return output;
+    }
+
+    private void ClearImages()
+    {
+        files.Clear();
+        convertedImages.Clear();
+        CalculateProgress();
+        isConverted = false;
+    }
+
+    private void CalculateProgress()
+    {
+        int totalLoadedFiles = files.Count;
+        if (files.Count == 0)
+        {
+            progress = 0;
+            bufferValue = 0;
+        }
+        else
+        {
+            double progress = (double)loadedFilesCount / totalLoadedFiles * 100;
+            double bufferValue = progress + 5;
+            this.progress = progress;
+            this.bufferValue = bufferValue;
+        }
     }
 }
