@@ -79,6 +79,11 @@
         pictureExtensions = imageService.GetPictureFormats();
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadThumbnailFile();
+    }
+
     private async Task LoadThumbnailFile()
     {
         using var stream = BrowserFile.OpenReadStream(maxFileSize);
