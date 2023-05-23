@@ -100,11 +100,20 @@
     private async Task LoadStates()
     {
         selectedExtension = await secureStorage.GetAsync(nameof(selectedExtension)) ?? ".png";
+        searchText = await secureStorage.GetAsync(nameof(searchText)) ?? "";
     }
 
     private async Task SaveStates()
     {
         await secureStorage.SetAsync(nameof(selectedExtension), selectedExtension);
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            secureStorage.Remove(nameof(searchText)); 
+        }
+        else
+        {
+            await secureStorage.SetAsync(nameof(searchText), searchText);
+        }
     }
 
     private async Task FilterImages()
@@ -117,7 +126,6 @@
         }
 
         files = output;
-        StateHasChanged();
         await SaveStates();
     }
 
