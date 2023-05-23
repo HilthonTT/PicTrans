@@ -5,6 +5,7 @@ public interface IImageService
 {
     string GetDefaultDownloadPath(IBrowserFile file, string selectedExtension);
     Task GetEncoderAsync(SixLabors.ImageSharp.Image image, MemoryStream convertedStream, string selectedExtension);
+    List<string> GetFolderPaths();
     List<string> GetPictureFormats();
     string GetPicturesDownloadPath(IBrowserFile file, string selectedExtension);
 }

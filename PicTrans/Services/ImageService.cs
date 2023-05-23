@@ -64,6 +64,18 @@ public class ImageService : IImageService
         return pictureExtensions;
     }
 
+    public List<string> GetFolderPaths()
+    {
+        return new List<string>()
+        {
+            "Download Folder",
+            "Picture Folder",
+            "Document Folder",
+            "Video Folder",
+            "Desktop",
+        };
+    }
+
     public string GetDefaultDownloadPath(IBrowserFile file, string selectedExtension)
     {
         string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

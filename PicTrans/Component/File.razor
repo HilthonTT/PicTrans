@@ -33,6 +33,14 @@
     <MudCardContent>
         <MudText Typo="Typo.body2">Last modified @BrowserFile.LastModified</MudText>
     </MudCardContent>
+    <div class="p-2">
+        <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root text-start">
+            @foreach (var e in pictureExtensions)
+            {
+                <MudSelectItem Value="@e">@e</MudSelectItem>
+            }
+        </MudSelect>
+    </div>
     <MudCardActions>
         @if (isConverted)
         {
