@@ -67,7 +67,6 @@
     [EditorRequired]
     public string SelectedPath { get; set; }
 
-    private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
     private string selectedExtension = ".png";
     private string sourcePath = "";
     private bool isConverted = false;
@@ -99,7 +98,6 @@
     private async Task DownloadImage()
     {
         string filePath = imageService.GetFilePath(BrowserFile, SelectedPath, selectedExtension);
-
         using (var outputStream = new FileStream(filePath, FileMode.Create))
         {
             await convertedFile.CopyToAsync(outputStream);

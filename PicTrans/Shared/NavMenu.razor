@@ -2,10 +2,15 @@
 
 <MudAppBar Color="MudBlazor.Color.Primary" Fixed="false">
     <MudIconButton 
-        Icon="@Icons.Material.Filled.Home" 
-        Color="MudBlazor.Color.Inherit" 
-        Edge="Edge.Start"
-        @onclick="LoadHomePage" />
+            Icon="@Icons.Material.Filled.Home" 
+            Color="MudBlazor.Color.Inherit" 
+            Edge="Edge.Start"
+            @onclick="LoadHomePage" />
+        <MudIconButton 
+            Icon="@Icons.Material.Filled.Compress" 
+            Color="MudBlazor.Color.Inherit" 
+            Edge="Edge.Start"
+            @onclick="LoadCompressorPage" />
         <MudIconButton 
             Icon="@Icons.Material.Filled.Book" 
             Color="MudBlazor.Color.Inherit" 
@@ -19,6 +24,11 @@
     private void LoadHomePage()
     {
         navManager.NavigateTo("/");
+    }
+
+    private void LoadCompressorPage()
+    {
+        navManager.NavigateTo("/Compressor");
     }
 
     private void LoadStatusPage()

@@ -112,11 +112,13 @@
 
 
 @code {
+    private const string DefaultFolder = "Download Folder";
+    private const string DefaultExtension = ".png";
+
     private IDialogReference dialogReference;
-    private const long maxFileSize = 1024 * 1024 * 500; // represents 500MB
     private string searchText = "";
-    private string selectedExtension = ".png";
-    private string selectedPath = "Download Folder";
+    private string selectedExtension = DefaultExtension;
+    private string selectedPath = DefaultFolder;
     private string errorMessage = "";
     private string alertClass = "";
     private int loadedFilesCount = 0;
@@ -138,13 +140,15 @@
 
     private async Task LoadStates()
     {
-        selectedExtension = await secureStorage.GetAsync(nameof(selectedExtension)) ?? ".png";
+        selectedExtension = await secureStorage.GetAsync(nameof(selectedExtension)) ?? DefaultExtension;
         searchText = await secureStorage.GetAsync(nameof(searchText)) ?? "";
+        selectedPath = await secureStorage.GetAsync(nameof(selectedPath)) ?? DefaultFolder;
     }
 
     private async Task SaveStates()
     {
         await secureStorage.SetAsync(nameof(selectedExtension), selectedExtension);
+        await secureStorage.SetAsync(nameof(selectedPath), selectedPath);
         if (string.IsNullOrWhiteSpace(searchText))
         {
             secureStorage.Remove(nameof(searchText)); 
@@ -321,7 +325,6 @@
     private void OpenDialog(string title)
     {
         var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
-       
         dialogReference = dialogService.Show<Dialog>(title, topCenter);
     }
 }

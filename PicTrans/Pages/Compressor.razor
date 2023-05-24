@@ -1,0 +1,191 @@
+﻿@page "/Compressor"
+@inject IImageService imageService
+@inject IDefaultDataService defaultDataService
+@inject ISecureStorage secureStorage
+@inject IDialogService dialogService
+
+<MudContainer >
+    <h1 class="text-uppercase text-center">Compressor</h1>
+    @if (string.IsNullOrWhiteSpace(errorMessage) is false)
+    {
+        <MudAlert Severity="@((Severity)Enum.Parse(typeof(Severity), alertClass))">
+            @errorMessage
+        </MudAlert>
+    }
+    <MudGrid>
+        <MudItem xs="12" Class="text-center">
+            <EditForm Model="model" OnValidSubmit="CompressAndDownloadImage" Context="c">
+                <MudPaper Class="pa-4">
+                    <ValidationSummary />
+                    <DataAnnotationsValidator />
+                    @if (string.IsNullOrWhiteSpace(sourcePath))
+                    {
+                        <MudImage Src="https://dummyimage.com/1200x900/000/ffffff&text=No+image+available."
+                                    Width="332"
+                                    Height="250"
+                                    Alt="Swedish Farm House"
+                                    Elevation="25"
+                                    Class="rounded-lg ma-4" />
+                    }
+                    else
+                    {
+                        <MudImage Src="@sourcePath"
+                                    Width="332"
+                                    Height="250"
+                                    Alt="@sourcePath"
+                                    Elevation="25"
+                                    Class="rounded-lg ma-4" />
+                    }
+                    @if (file is not null)
+                    {
+                        <MudText Typo="Typo.h6">@file.Name - @file.Size bytes</MudText>
+                    }
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFile" 
+                        Accept=".png;.jpeg.;.jpg;.gif;.bmp;.tiff;.webp;">
+                        <ButtonTemplate>
+                            <MudButton 
+                                HtmlTag="label"
+                                Variant="Variant.Filled"
+                                Color="MudBlazor.Color.Primary"
+                                StartIcon="@Icons.Material.Filled.CloudUpload"
+                                Class="w-100"
+                                for="@context">
+                                Single File
+                            </MudButton>
+                        </ButtonTemplate>
+                    </MudFileUpload>
+                    <MudButtonGroup Class="mt-2">
+                        @foreach (var p in folderPaths)
+                        {
+                            <MudButton Class="@GetButtonClass(p)"
+                                       OnClick="(() => OnButtonClick(p))">
+                                @p
+                            </MudButton>
+                        }
+                    </MudButtonGroup>
+                    <MudSelect Label="Convert to:" @bind-Value="model.FileExtension" Class="mud-input-root text-start">
+                        @foreach (var e in pictureExtensions)
+                        {
+                            <MudSelectItem Value="@e">@e</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <div class="align-center mt-2">
+                        <MudButton 
+                            Variant="Variant.Filled" 
+                            Color="MudBlazor.Color.Primary" 
+                            Class="ml-auto" 
+                            ButtonType="ButtonType.Submit"
+                            Disabled="isFileNotLoaded">
+                            Compress And Download
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            </EditForm>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private const string DefaultFolder = "Download Folder";
+    private const string DefaultExtension = ".png";
+
+    private IDialogReference dialogReference;
+    private CompressFileModel model = new();
+    private IBrowserFile file;
+    private string errorMessage = "";
+    private string alertClass = "";
+    private string sourcePath = "";
+    private string selectedExtension = DefaultExtension;
+    private string selectedPath = DefaultFolder;
+    private bool isFileNotLoaded = true;
+    private List<string> pictureExtensions = new();
+    private List<string> folderPaths = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        pictureExtensions = defaultDataService.GetPictureFormats();
+        folderPaths = defaultDataService.GetFolderPaths();
+        await LoadStates();
+    }
+
+    private async Task LoadStates()
+    {
+        selectedExtension = await secureStorage.GetAsync(nameof(selectedExtension)) ?? DefaultExtension;
+        selectedPath = await secureStorage.GetAsync(nameof(selectedPath)) ?? DefaultFolder;
+    }
+
+    private async Task SaveStates()
+    {
+        await secureStorage.SetAsync(nameof(selectedExtension), selectedExtension);
+        await secureStorage.SetAsync(nameof(selectedPath), selectedPath);
+    }
+
+
+    private async Task UploadFile(IReadOnlyList<IBrowserFile> files)
+    {
+        errorMessage = "";
+        if (files.Count > 1)
+        {
+            GetAlertSeverity("Warning");
+            errorMessage = "You can only input a single file.";
+            return;
+        }
+
+        file = files.FirstOrDefault();
+        sourcePath = await imageService.LoadImageFileAsync(file);
+        isFileNotLoaded = false;
+    }
+
+    private async Task CompressAndDownloadImage()
+    {
+        try
+        {
+            errorMessage = "";
+            await imageService.CompressImageAndDownloadAsync(file, model);
+            await SaveStates();
+            OpenDialog($"Succesfully compressed and downloaded to {selectedPath}");
+        }
+        catch (Exception ex)
+        {
+            GetAlertSeverity("Error");
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetButtonClass(string path)
+    {
+        if (selectedPath == path)
+        {
+            return "text-success";
+        }
+
+        return "text-danger";
+    }
+
+    private void GetAlertSeverity(string alert)
+    {
+        string output = alert switch
+        {
+            "Normal" => "Severity.Normal",
+            "Info" => "Severity.Info",
+            "Success" => "Severity.Success",
+            "Warning" => "Severity.Warning",
+            "Error" => "Severity.Error",
+            _ => "Severity.Info",
+        };
+
+        alertClass = alert;
+    }
+
+    private void OpenDialog(string title)
+    {
+        var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
+        dialogReference = dialogService.Show<Dialog>(title, topCenter);
+    }
+
+    private void OnButtonClick(string path)
+    {
+        model.SelectedPath = path;
+        selectedPath = path;
+    }
+}

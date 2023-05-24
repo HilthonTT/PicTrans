@@ -24,18 +24,20 @@ public class ImageService : IImageService
         return $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
     }
 
-    public async Task CompressImageAsync(IBrowserFile imageFile, CompressFileModel model)
+    public async Task CompressImageAndDownloadAsync(IBrowserFile imageFile, CompressFileModel model)
     {
         using var imageStream = imageFile.OpenReadStream(MaxFileSize);
         using var image = await Image.LoadAsync(imageStream);
+
         image.Mutate(x => x.Resize(new ResizeOptions
         {
-            Size = new Size(model.TargetImageWidth, model.TargetImageHeight),
+            Size = new Size(image.Width, image.Height),
             Mode = ResizeMode.Max,
         }));
 
         using var compressedStream = new MemoryStream();
         await GetEncoderAsync(image, compressedStream, model.FileExtension);
+        await DownloadFileAsync(imageFile, compressedStream, model.SelectedPath, model.FileExtension);
     }
 
     public async Task DownloadFileAsync(IBrowserFile file,
@@ -43,10 +45,11 @@ public class ImageService : IImageService
                                         string selectedPath,
                                         string selectedExtension)
     {
+        string fileName = Path.GetFileNameWithoutExtension(file.Name);
         string filePath = GetFilePath(file, selectedPath, selectedExtension);
         using var outputStream = new FileStream(filePath, FileMode.Create);
+        convertedImage.Position = 0;
         await convertedImage.CopyToAsync(outputStream);
-        outputStream.Close();
     }
 
     public async Task ConvertImageAsync(IBrowserFile file, string selectedExtension, List<MemoryStream> convertedImages = null)
