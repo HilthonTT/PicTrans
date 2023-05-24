@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject ISecureStorage secureStorage
 @inject IImageService imageService
+@inject IDefaultDataService defaultDataService
 @inject IDialogService dialogService
 
 <MudContainer>
@@ -16,12 +17,13 @@
             <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles" 
                 Accept=".png;.jpeg.;.jpg;.gif;.bmp;.tiff;.webp;">
                 <ButtonTemplate>
-                    <MudButton HtmlTag="label"
-                               Variant="Variant.Filled"
-                               Color="MudBlazor.Color.Primary"
-                               StartIcon="@Icons.Material.Filled.CloudUpload"
-                               Class="w-100"
-                               for="@context">
+                    <MudButton 
+                        HtmlTag="label"
+                        Variant="Variant.Filled"
+                        Color="MudBlazor.Color.Primary"
+                        StartIcon="@Icons.Material.Filled.CloudUpload"
+                        Class="w-100"
+                        for="@context">
                         Multiple Files
                     </MudButton>
                 </ButtonTemplate>
@@ -68,19 +70,28 @@
                     <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
                         @if (isConverted is false)
                         {
-                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OnClick="ConvertImages">
+                            <MudButton 
+                                Variant="Variant.Outlined" 
+                                Color="MudBlazor.Color.Primary" 
+                                OnClick="ConvertImages">
                                 Convert
                             </MudButton>
                         }
                         else
                         {
-                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OnClick="DownloadImages">
+                            <MudButton 
+                                Variant="Variant.Outlined" 
+                                Color="MudBlazor.Color.Primary" 
+                                OnClick="DownloadImages">
                                 Download
                             </MudButton>
                         }
                         @if (files.Count > 0)
                         {
-                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ClearImages">
+                            <MudButton 
+                                Variant="Variant.Outlined" 
+                                Color="MudBlazor.Color.Error" 
+                                OnClick="ClearImages">
                                 Clear
                             </MudButton>
                         }
@@ -120,8 +131,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        pictureExtensions = imageService.GetPictureFormats();
-        folderPaths = imageService.GetFolderPaths();
+        pictureExtensions = defaultDataService.GetPictureFormats();
+        folderPaths = defaultDataService.GetFolderPaths();
         await LoadStates();
     }
 
@@ -173,9 +184,9 @@
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
     {
         isConverted = false;
-        foreach (var file in files)
+        foreach (var f in files)
         {
-            this.files.Add(file);
+            this.files.Add(f);
             loadedFilesCount = this.files.Count;
             CalculateProgress();
         }
@@ -199,15 +210,7 @@
 
             foreach (var file in files)
             {
-                using (var stream = file.OpenReadStream(maxFileSize))
-                using (var image = await Image.LoadAsync(stream))
-                using (var convertedStream = new MemoryStream())
-                {
-                    await imageService.GetEncoderAsync(image, convertedStream, selectedExtension);
-                    convertedStream.Position = 0;
-
-                    convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
-                }
+                await imageService.ConvertImageAsync(file, selectedExtension, convertedImages);
             }
 
             await SaveStates();
@@ -238,12 +241,8 @@
                 var file = files[i];
                 var convertedImage = convertedImages[i];
 
-                string filePath = GetFilePath(file, selectedExtension);
-
-                using (var outputStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await convertedImage.CopyToAsync(outputStream);
-                }
+                await imageService.DownloadFileAsync(file, convertedImage, 
+                    selectedPath, selectedExtension);
             }
 
             isConverted = false;
@@ -291,15 +290,6 @@
         };
 
         return output;
-    }
-
-    private string GetFilePath(IBrowserFile file, string selectedExtension)
-    {
-        return selectedPath switch
-        {
-            "Download Folder" => imageService.GetDefaultDownloadPath(file, selectedExtension),
-            _ => imageService.GetSelectedPath(file, selectedExtension, selectedPath),
-        };
     }
 
     private void ClearImages()

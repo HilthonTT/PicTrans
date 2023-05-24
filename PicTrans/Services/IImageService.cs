@@ -3,9 +3,9 @@
 namespace PicTrans.Services;
 public interface IImageService
 {
-    string GetDefaultDownloadPath(IBrowserFile file, string selectedExtension);
+    Task ConvertImageAsync(IBrowserFile file, string selectedExtension, List<MemoryStream> convertedImages = null);
+    Task DownloadFileAsync(IBrowserFile file, MemoryStream convertedImage, string selectedPath, string selectedExtension);
     Task GetEncoderAsync(SixLabors.ImageSharp.Image image, MemoryStream convertedStream, string selectedExtension);
-    List<string> GetFolderPaths();
-    List<string> GetPictureFormats();
-    string GetSelectedPath(IBrowserFile file, string selectedExtension, string path);
+    string GetFilePath(IBrowserFile file, string selectedPath, string selectedExtension);
+    Task<string> LoadImageFileAsync(IBrowserFile file);
 }
