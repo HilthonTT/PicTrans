@@ -92,3 +92,7 @@ a, .btn-link {
     display: flex;
     justify-content: center;
 }
+
+.backdrop-blur {
+    backdrop-filter: blur(10px);
+}

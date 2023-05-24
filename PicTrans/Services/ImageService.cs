@@ -50,7 +50,7 @@ public class ImageService : IImageService
 
     public List<string> GetPictureFormats()
     {
-        List<string> pictureExtensions = new()
+        return new List<string>()
         {
             ".jpg",
             ".jpeg",
@@ -60,8 +60,6 @@ public class ImageService : IImageService
             ".tiff",
             ".webp",
         };
-
-        return pictureExtensions;
     }
 
     public List<string> GetFolderPaths()
@@ -83,10 +81,22 @@ public class ImageService : IImageService
         return Path.Combine(downloadsFolder, "Downloads", fileName);
     }
 
-    public string GetPicturesDownloadPath(IBrowserFile file, string selectedExtension)
+    public string GetSelectedPath(IBrowserFile file, string selectedExtension, string path)
     {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        string downloadsFolder = Environment.GetFolderPath(GetFolder(path));
         string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
         return Path.Combine(downloadsFolder, fileName);
+    }
+
+    private static Environment.SpecialFolder GetFolder(string path)
+    {
+        return path switch
+        {
+            "Picture Folder" => Environment.SpecialFolder.MyPictures,
+            "Document Folder" => Environment.SpecialFolder.MyDocuments,
+            "Video Folder" => Environment.SpecialFolder.MyVideos,
+            "Desktop" => Environment.SpecialFolder.Desktop,
+            _ => throw new NotImplementedException(),
+        };
     }
 }

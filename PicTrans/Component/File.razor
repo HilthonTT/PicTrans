@@ -64,7 +64,7 @@
 
     [Parameter]
     [EditorRequired]
-    public bool IsDownloadFolder { get; set; }
+    public string SelectedPath { get; set; }
 
     private long maxFileSize = 1024 * 1024 * 50; // represents 50MB
     private string selectedExtension = ".png";
@@ -90,8 +90,7 @@
         using var memoryStream = new MemoryStream();
         await stream.CopyToAsync(memoryStream);
         byte[] bytes = memoryStream.ToArray();
-        string base64Image = $"data:{BrowserFile.ContentType};base64,{Convert.ToBase64String(bytes)}";
-        sourcePath = base64Image;
+        sourcePath = $"data:{BrowserFile.ContentType};base64,{Convert.ToBase64String(bytes)}";
     }
 
     private async Task ConvertImage()
@@ -111,15 +110,7 @@
 
     private async Task DownloadImage()
     {
-        string filePath = "";
-        if (IsDownloadFolder)
-        {
-            filePath = imageService.GetDefaultDownloadPath(BrowserFile, selectedExtension);
-        }
-        else
-        {
-            filePath = imageService.GetPicturesDownloadPath(BrowserFile, selectedExtension);
-        }
+        string filePath = GetFilePath();
 
         using (var outputStream = new FileStream(filePath, FileMode.Create))
         {
@@ -127,5 +118,14 @@
         }
 
         isConverted = false;
+    }
+
+    private string GetFilePath()
+    {
+        return SelectedPath switch
+        {
+            "Download Folder" => imageService.GetDefaultDownloadPath(BrowserFile, selectedExtension),
+            _ => imageService.GetSelectedPath(BrowserFile, selectedExtension, SelectedPath),
+        };
     }
 }
