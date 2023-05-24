@@ -52,14 +52,14 @@
                 Value="progress" 
                 BufferValue="bufferValue" 
                 Class="my-7" />
-            <MudTextField 
-                @bind-Value="searchText" 
-                Label="Search" 
+            <MudAutocomplete T="string" Label="Search" 
                 Variant="Variant.Outlined" 
-                Adornment="Adornment.End" 
+                @bind-Value="searchText" 
+                SearchFunc="SearchImage"
                 AdornmentIcon="@Icons.Material.Filled.Search" 
-                AdornmentColor="MudBlazor.Color.Secondary" 
-                OnAdornmentClick="FilterImages"/>
+                AdornmentColor="MudBlazor.Color.Primary"
+                OnAdornmentClick="FilterImages"
+                ResetValueOnEmptyText="true"/>
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <MudText Align="Align.Start" Class="mt-2">@GetFilesCount()</MudText>
@@ -155,6 +155,19 @@
 
         files = output;
         await SaveStates();
+    }
+
+    private async Task<IEnumerable<string>> SearchImage(string value)
+    {
+        searchText = value;
+        var output = initialFiles;
+        if (string.IsNullOrWhiteSpace(searchText) is false)
+        {
+            output = output.Where(f => f.Name.Contains(value, StringComparison.InvariantCultureIgnoreCase)).ToList();
+        }
+
+        await SaveStates();
+        return output.Select(f => f.Name);
     }
 
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
