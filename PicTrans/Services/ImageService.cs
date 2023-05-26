@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
-using PicTrans.Models;
 using SixLabors.ImageSharp.Formats.Bmp;
 using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -24,35 +23,45 @@ public class ImageService : IImageService
         return $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
     }
 
-    public async Task CompressImageAndDownloadAsync(IBrowserFile imageFile, CompressFileModel model)
+    public async Task CompressImageAndDownloadAsync(
+        IBrowserFile imageFile,
+        string selectedPath,
+        string fileExtension,
+        int maxWidth = 800, 
+        int maxHeight = 800)
     {
         using var imageStream = imageFile.OpenReadStream(MaxFileSize);
         using var image = await Image.LoadAsync(imageStream);
 
+        
         image.Mutate(x => x.Resize(new ResizeOptions
         {
-            Size = new Size(image.Width, image.Height),
+            Size = new Size(maxWidth, maxHeight),
             Mode = ResizeMode.Max,
         }));
 
+
         using var compressedStream = new MemoryStream();
-        await GetEncoderAsync(image, compressedStream, model.FileExtension);
-        await DownloadFileAsync(imageFile, compressedStream, model.SelectedPath, model.FileExtension);
+        await GetEncoderAsync(image, compressedStream, fileExtension);
+        await DownloadFileAsync(imageFile, compressedStream, selectedPath, fileExtension);
     }
 
-    public async Task DownloadFileAsync(IBrowserFile file,
-                                        MemoryStream convertedImage,
-                                        string selectedPath,
-                                        string selectedExtension)
+    public async Task DownloadFileAsync(
+        IBrowserFile file,
+        MemoryStream convertedImage,
+        string selectedPath,
+        string selectedExtension)
     {
-        string fileName = Path.GetFileNameWithoutExtension(file.Name);
         string filePath = GetFilePath(file, selectedPath, selectedExtension);
         using var outputStream = new FileStream(filePath, FileMode.Create);
         convertedImage.Position = 0;
         await convertedImage.CopyToAsync(outputStream);
     }
 
-    public async Task ConvertImageAsync(IBrowserFile file, string selectedExtension, List<MemoryStream> convertedImages = null)
+    public async Task ConvertImageAsync(
+        IBrowserFile file,
+        string selectedExtension,
+        List<MemoryStream> convertedImages = null)
     {
         using var stream = file.OpenReadStream(MaxFileSize);
         using var image = await Image.LoadAsync(stream);
@@ -66,7 +75,10 @@ public class ImageService : IImageService
         }
     }
 
-    public string GetFilePath(IBrowserFile file, string selectedPath, string selectedExtension)
+    public string GetFilePath(
+        IBrowserFile file,
+        string selectedPath,
+        string selectedExtension)
     {
         return selectedPath switch
         {
@@ -75,9 +87,10 @@ public class ImageService : IImageService
         };
     }
 
-    public async Task GetEncoderAsync(Image image,
-                                  MemoryStream convertedStream,
-                                  string selectedExtension)
+    private static async Task GetEncoderAsync(
+        Image image,
+        MemoryStream convertedStream,
+        string selectedExtension)
     {
         switch (selectedExtension)
         {
@@ -107,7 +120,7 @@ public class ImageService : IImageService
                 break;
 
             default:
-                throw new NotImplementedException();
+                throw new NotImplementedException($"Unsupported file extension: {selectedExtension}");
         }
     }
 
