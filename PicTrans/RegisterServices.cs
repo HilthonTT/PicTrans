@@ -12,6 +12,8 @@ public static class RegisterServices
         builder.Services.AddSingleton<ISecureStorage, SecureStorageWrapper>();
         builder.Services.AddSingleton<IImageService, ImageService>();
         builder.Services.AddSingleton<IDefaultDataService, DefaultDataService>();
+        builder.Services.AddSingleton<IPathService, PathService>();
+        builder.Services.AddSingleton<IFileService, FileService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

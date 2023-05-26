@@ -12,6 +12,11 @@
             Edge="Edge.Start"
             @onclick="LoadCompressorPage" />
         <MudIconButton 
+            Icon="@Icons.Material.Filled.FileCopy" 
+            Color="MudBlazor.Color.Inherit" 
+            Edge="Edge.Start"
+            @onclick="LoadFileConverterPage" />
+        <MudIconButton 
             Icon="@Icons.Material.Filled.Book" 
             Color="MudBlazor.Color.Inherit" 
             Edge="Edge.Start"
@@ -34,6 +39,11 @@
     private void LoadStatusPage()
     {
         navManager.NavigateTo("/Status");
+    }
+
+    private void LoadFileConverterPage()
+    {
+        navManager.NavigateTo("/FileConverter");
     }
 
     private void LoadAuthorGithubPage()

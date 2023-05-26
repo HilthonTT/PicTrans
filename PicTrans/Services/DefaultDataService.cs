@@ -26,4 +26,14 @@ public class DefaultDataService : IDefaultDataService
             "Desktop",
         };
     }
+
+    public List<string> GetFileFormats()
+    {
+        return new List<string>()
+        {
+            ".docx",
+            ".pdf",
+            ".txt",
+        };
+    }
 }

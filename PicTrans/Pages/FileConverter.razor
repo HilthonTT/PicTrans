@@ -1,0 +1,60 @@
+﻿@page "/FileConverter"
+@inject IFileService fileService
+@inject IDefaultDataService defaultDataService
+
+<MudContainer>
+    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles"
+                   Accept=".txt;.pdf;.docx">
+        <ButtonTemplate>
+            <MudButton HtmlTag="label"
+                       Variant="Variant.Filled"
+                       Color="MudBlazor.Color.Primary"
+                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                       Class="w-100"
+                       for="@context">
+                Multiple Files
+            </MudButton>
+        </ButtonTemplate>
+    </MudFileUpload>
+    <MudButton OnClick="ConvertAndDownloadFiles">
+        Convert And Download
+    </MudButton>
+</MudContainer>
+
+@code {
+    private const string DefaultFolder = "Download Folder";
+    private const string DefaultExtension = ".txt";
+
+    private string selectedPath = DefaultFolder;
+    private string selectedExtension = DefaultExtension;
+    private List<IBrowserFile> files = new();
+    private List<string> fileExtensions = new();
+    private List<string> folderPaths = new();
+
+    protected override void OnInitialized()
+    {
+        fileExtensions = defaultDataService.GetFileFormats();
+        folderPaths = defaultDataService.GetFolderPaths();
+    }
+
+    private void UploadFiles(IReadOnlyList<IBrowserFile> files)
+    {
+        foreach (var f in files)
+        {
+            this.files.Add(f);
+        }
+    }
+
+    private async Task ConvertAndDownloadFiles()
+    {
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var f in files)
+        {
+            await fileService.DownloadFileAsync(f, selectedPath, selectedExtension);
+        }
+    }
+}
