@@ -65,7 +65,24 @@
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <MudText Align="Align.Start" Class="mt-2">@GetFilesCount()</MudText>
+                    <MudSwitch @bind-Checked="isCompressedOption" Label="Compress Images" Color="MudBlazor.Color.Primary" />
+                    @if (isCompressedOption)
+                    {
+                        <MudNumericField @bind-Value="maxWidth"
+                            Label="Max Width"
+                            Variant="Variant.Text"
+                            Min="1"
+                            Max="6000"
+                            Required="true"/>
+                        <MudNumericField @bind-Value="maxHeight"
+                            Label="Max Height"
+                            Variant="Variant.Text"
+                            Min="1"
+                            Max="5000"
+                            Required="true"/>
+                    }
                 </div>
+                <div></div> <!-- Add an empty div to create spaces -->
                 <div class="center-children">
                     <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
                         @if (isConverted is false)
@@ -97,7 +114,9 @@
                         }
                     </MudButtonGroup>
                 </div>
-                <div></div> <!-- Add an empty div to create space at the end -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
             </div>
         </MudItem>
         <MudItem xs="12">
@@ -122,9 +141,12 @@
     private string errorMessage = "";
     private string alertClass = "";
     private int loadedFilesCount = 0;
+    private int maxWidth = 800;
+    private int maxHeight = 800;
     private double progress = 0;
     private double bufferValue = 0;
     private bool isConverted = false;
+    private bool isCompressedOption = false;
     private List<IBrowserFile> files = new();
     private List<IBrowserFile> initialFiles = new();
     private List<MemoryStream> convertedImages = new();
@@ -240,13 +262,13 @@
                 return;
             }
 
-            for (int i = 0; i < files.Count; i++)
+            if (isCompressedOption)
             {
-                var file = files[i];
-                var convertedImage = convertedImages[i];
-
-                await imageService.DownloadFileAsync(file, convertedImage, 
-                    selectedPath, selectedExtension);
+                await ProcessImagesAsync(CompressAndDownloadImageAsync);
+            }
+            else
+            {
+                await ProcessImagesAsync(DownloadImageAsync);
             }
 
             isConverted = false;
@@ -258,6 +280,34 @@
             errorMessage = ex.Message;
         }
     }
+
+    private async Task ProcessImagesAsync(Func<IBrowserFile, MemoryStream, string, string, Task> imageProcessingFunc)
+    {
+        for (int i = 0; i < files.Count; i++)
+        {
+            var file = files[i];
+            var convertedImage = convertedImages[i];
+
+            await imageProcessingFunc(file, convertedImage, selectedPath, selectedExtension);
+        }
+    }
+
+    private async Task CompressAndDownloadImageAsync(IBrowserFile file, 
+        MemoryStream convertedImage, 
+        string selectedPath, 
+        string selectedExtension)
+    {
+        await imageService.CompressImageAndDownloadAsync(file, selectedPath, selectedExtension, maxWidth, maxHeight);
+    }
+
+    private async Task DownloadImageAsync(IBrowserFile file, 
+        MemoryStream convertedImage, 
+        string selectedPath, 
+        string selectedExtension)
+    {
+        await imageService.DownloadFileAsync(file, convertedImage, selectedPath, selectedExtension);
+    }
+
 
     private string GetButtonClass(string path)
     {

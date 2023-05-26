@@ -10,4 +10,12 @@ public class CompressFileModel
     [Required]
     [Display(Name = "Selected Path")]
     public string SelectedPath { get; set; } = "Download Folder";
+
+    [Required]
+    [Display(Name = "Max Width")]
+    public int MaxWidth { get; set; } = 800;
+
+    [Required]
+    [Display(Name = "Max Height")]
+    public int MaxHeight { get; set; } = 800;
 }

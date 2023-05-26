@@ -69,6 +69,18 @@
                             <MudSelectItem Value="@e">@e</MudSelectItem>
                         }
                     </MudSelect>
+                    <MudNumericField 
+                        @bind-Value="model.MaxWidth" 
+                        Label="Max Width" 
+                        Variant="Variant.Text" 
+                        Min="1" 
+                        Max="6000" />
+                    <MudNumericField 
+                        @bind-Value="model.MaxHeight"
+                        Label="Max Height" 
+                        Variant="Variant.Text" 
+                        Min="1" 
+                        Max="5000" />
                     <div class="align-center mt-2">
                         <MudButton 
                             Variant="Variant.Filled" 
@@ -141,7 +153,7 @@
         try
         {
             errorMessage = "";
-            await imageService.CompressImageAndDownloadAsync(file, model);
+            await imageService.CompressImageAndDownloadAsync(file, model.SelectedPath, model.FileExtension, model.MaxWidth, model.MaxHeight);
             await SaveStates();
             OpenDialog($"Succesfully compressed and downloaded to {selectedPath}");
         }
