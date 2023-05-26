@@ -1,4 +1,5 @@
 ﻿@inject IImageService imageService
+@inject IPathService pathService
 @inject IDefaultDataService defaultDataService
 
 <MudCard Class="mb-3">
@@ -97,7 +98,7 @@
 
     private async Task DownloadImage()
     {
-        string filePath = imageService.GetFilePath(BrowserFile, SelectedPath, selectedExtension);
+        string filePath = pathService.GetFilePath(BrowserFile, SelectedPath, selectedExtension);
         using (var outputStream = new FileStream(filePath, FileMode.Create))
         {
             await convertedFile.CopyToAsync(outputStream);

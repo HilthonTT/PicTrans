@@ -13,6 +13,12 @@ namespace PicTrans.Services;
 public class ImageService : IImageService
 {
     private const long MaxFileSize = 1024 * 1024 * 500; // represents 500MB
+    private readonly IPathService _pathService;
+
+    public ImageService(IPathService pathService)
+    {
+        _pathService = pathService;
+    }
 
     public async Task<string> LoadImageFileAsync(IBrowserFile file)
     {
@@ -33,13 +39,11 @@ public class ImageService : IImageService
         using var imageStream = imageFile.OpenReadStream(MaxFileSize);
         using var image = await Image.LoadAsync(imageStream);
 
-        
         image.Mutate(x => x.Resize(new ResizeOptions
         {
             Size = new Size(maxWidth, maxHeight),
             Mode = ResizeMode.Max,
         }));
-
 
         using var compressedStream = new MemoryStream();
         await GetEncoderAsync(image, compressedStream, fileExtension);
@@ -52,7 +56,7 @@ public class ImageService : IImageService
         string selectedPath,
         string selectedExtension)
     {
-        string filePath = GetFilePath(file, selectedPath, selectedExtension);
+        string filePath = _pathService.GetFilePath(file, selectedPath, selectedExtension);
         using var outputStream = new FileStream(filePath, FileMode.Create);
         convertedImage.Position = 0;
         await convertedImage.CopyToAsync(outputStream);
@@ -73,18 +77,6 @@ public class ImageService : IImageService
 
             convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
         }
-    }
-
-    public string GetFilePath(
-        IBrowserFile file,
-        string selectedPath,
-        string selectedExtension)
-    {
-        return selectedPath switch
-        {
-            "Download Folder" => GetDefaultDownloadPath(file, selectedExtension),
-            _ => GetSelectedPath(file, selectedExtension, selectedPath),
-        };
     }
 
     private static async Task GetEncoderAsync(
@@ -122,31 +114,5 @@ public class ImageService : IImageService
             default:
                 throw new NotImplementedException($"Unsupported file extension: {selectedExtension}");
         }
-    }
-
-    private static string GetDefaultDownloadPath(IBrowserFile file, string selectedExtension)
-    {
-        string downloadsFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, "Downloads", fileName);
-    }
-
-    private static string GetSelectedPath(IBrowserFile file, string selectedExtension, string path)
-    {
-        string downloadsFolder = Environment.GetFolderPath(GetFolder(path));
-        string fileName = Path.GetFileNameWithoutExtension(file.Name) + selectedExtension;
-        return Path.Combine(downloadsFolder, fileName);
-    }
-
-    private static Environment.SpecialFolder GetFolder(string path)
-    {
-        return path switch
-        {
-            "Picture Folder" => Environment.SpecialFolder.MyPictures,
-            "Document Folder" => Environment.SpecialFolder.MyDocuments,
-            "Video Folder" => Environment.SpecialFolder.MyVideos,
-            "Desktop" => Environment.SpecialFolder.Desktop,
-            _ => throw new NotImplementedException(),
-        };
     }
 }
