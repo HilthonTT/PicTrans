@@ -5,7 +5,10 @@
 @inject IDialogService dialogService
 
 <MudContainer>
-    <h1 class="text-uppercase text-center">Convert Images</h1>
+    <h1 class="text-uppercase text-center">
+        Convert Images
+        <MudIcon Icon="@Icons.Material.Filled.Home" Title="Home"/>
+    </h1>
     @if (string.IsNullOrWhiteSpace(errorMessage) is false)
     {
         <MudAlert Severity="@((Severity)Enum.Parse(typeof(Severity), alertClass))">
@@ -121,7 +124,7 @@
         </MudItem>
         <MudItem xs="12">
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
-                <File 
+                <ImageFile 
                     BrowserFile="f" 
                     SelectedPath="@selectedPath"/>
             </MudVirtualize>
@@ -352,6 +355,7 @@
         initialFiles.Clear();
         convertedImages.Clear();
         CalculateProgress();
+        loadedFilesCount = 0;
         isConverted = false;
     }
 

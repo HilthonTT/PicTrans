@@ -5,7 +5,10 @@
 @inject IDialogService dialogService
 
 <MudContainer >
-    <h1 class="text-uppercase text-center">Compressor</h1>
+    <h1 class="text-uppercase text-center">
+        Compressor
+        <MudIcon Icon="@Icons.Material.Filled.Compress" Title="Compress"/>
+    </h1>
     @if (string.IsNullOrWhiteSpace(errorMessage) is false)
     {
         <MudAlert Severity="@((Severity)Enum.Parse(typeof(Severity), alertClass))">

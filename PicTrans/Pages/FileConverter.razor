@@ -1,57 +1,172 @@
 ﻿@page "/FileConverter"
 @inject IFileService fileService
 @inject IDefaultDataService defaultDataService
+@inject ISecureStorage secureStorage
 
 <MudContainer>
-    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
-        <ButtonTemplate>
-            <MudButton HtmlTag="label"
-                       Variant="Variant.Filled"
-                       Color="MudBlazor.Color.Primary"
-                       StartIcon="@Icons.Material.Filled.CloudUpload"
-                       Class="w-100"
-                       for="@context">
-                Multiple Files
-            </MudButton>
-        </ButtonTemplate>
-    </MudFileUpload>
-    <MudButtonGroup Class="mt-2">
-        @foreach (var p in folderPaths)
-        {
-            <MudButton Class="@GetButtonClass(p)"
-                       OnClick="(() => selectedPath = p)">
-                @p
-            </MudButton>
-        }
-    </MudButtonGroup>
-    <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root text-start">
-        @foreach (var e in fileExtensions)
-        {
-            <MudSelectItem Value="@e">@e</MudSelectItem>
-        }
-    </MudSelect>
-    @if (files.Count > 0)
+    <h1 class="text-uppercase text-center">
+        Convert Files
+        <MudIcon Icon="@Icons.Material.Filled.FileDownload" Title="File Download" />
+    </h1>
+    @if (string.IsNullOrWhiteSpace(errorMessage) is false)
     {
-        <MudButton OnClick="ConvertAndDownloadFiles">
-            Convert And Download
-        </MudButton>
+        <MudAlert Severity="@((Severity)Enum.Parse(typeof(Severity), alertClass))">
+            @errorMessage
+        </MudAlert>
     }
+    <MudGrid>
+        <MudItem xs="12" Class="text-center">
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles"
+                           Accept=".docx,.txt,.pdf">
+                <ButtonTemplate>
+                    <MudButton HtmlTag="label"
+                               Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Class="w-100"
+                               for="@context">
+                        Multiple Files
+                    </MudButton>
+                </ButtonTemplate>
+            </MudFileUpload>
+            <MudButtonGroup Class="mt-2">
+                @foreach (var p in folderPaths)
+                {
+                    <MudButton Class="@GetButtonClass(p)"
+                               OnClick="(() => selectedFilePath = p)">
+                        @p
+                    </MudButton>
+                }
+            </MudButtonGroup>
+            <MudSelect Label="Convert to:" @bind-Value="selectedFileExtension" Class="mud-input-root text-start">
+                @foreach (var e in fileExtensions)
+                {
+                    <MudSelectItem Value="@e">@e</MudSelectItem>
+                }
+            </MudSelect>
+            <MudText Align="Align.Center"
+                     Class="mt-2">
+                @progress.ToString("0")%
+            </MudText>
+            <MudProgressLinear Color="MudBlazor.Color.Primary"
+                               Buffer="true"
+                               Value="progress"
+                               BufferValue="bufferValue"
+                               Class="my-7" />
+            <MudAutocomplete T="string" Label="Search"
+                             Variant="Variant.Outlined"
+                             @bind-Value="searchText"
+                             SearchFunc="SearchImage"
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             AdornmentColor="MudBlazor.Color.Primary"
+                             OnAdornmentClick="FilterImages"
+                             ResetValueOnEmptyText="true" />
+            <div class="d-flex justify-content-between align-items-start">
+                <MudText Align="Align.Start" Class="mt-2">@GetFilesCount()</MudText>
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div class="center-children">
+                    <!-- Center the button group -->
+                    <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
+                        <div class="d-flex justify-content-center">
+                            <!-- Center the buttons -->
+                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OnClick="ConvertAndDownloadFiles">
+                                Download
+                            </MudButton>
+                            @if (files.Count > 0)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ClearFiles">
+                                    Clear
+                                </MudButton>
+                            }
+                        </div>
+                    </MudButtonGroup>
+                </div>
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+                <div></div> <!-- Add an empty div to create spaces -->
+            </div>
+        </MudItem>
+        <MudItem xs="12">
+            <MudVirtualize Items="files" Context="f" OverscanCount="10">
+                <File 
+                    BrowserFile="f"
+                    SelectedPath="@selectedFilePath" />
+            </MudVirtualize>
+        </MudItem>
+    </MudGrid>
 </MudContainer>
 
 @code {
     private const string DefaultFolder = "Download Folder";
     private const string DefaultExtension = ".txt";
 
-    private string selectedPath = DefaultFolder;
-    private string selectedExtension = DefaultExtension;
+    private string selectedFilePath = DefaultFolder;
+    private string selectedFileExtension = DefaultExtension;
+    private string alertClass = "";
+    private string searchText = "";
+    private string errorMessage = "";
+    private double progress = 0;
+    private double bufferValue = 0;
+    private int loadedFilesCount = 0;
     private List<IBrowserFile> files = new();
+    private List<IBrowserFile> initialFiles = new();
     private List<string> fileExtensions = new();
     private List<string> folderPaths = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         fileExtensions = defaultDataService.GetFileFormats();
         folderPaths = defaultDataService.GetFolderPaths();
+        await LoadStates();
+    }
+
+    private async Task LoadStates()
+    {
+        searchText = await secureStorage.GetAsync(nameof(searchText)) ?? "";
+        selectedFilePath = await secureStorage.GetAsync(nameof(selectedFilePath)) ?? DefaultFolder;
+    }
+
+    private async Task SaveStates()
+    {
+        await secureStorage.SetAsync(nameof(selectedFileExtension), selectedFileExtension);
+        await secureStorage.SetAsync(nameof(selectedFilePath), selectedFilePath);
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            secureStorage.Remove(nameof(searchText));
+        }
+        else
+        {
+            await secureStorage.SetAsync(nameof(searchText), searchText);
+        }
+    }
+
+    private async Task FilterImages()
+    {
+        var output = initialFiles;
+
+        if (string.IsNullOrWhiteSpace(searchText) is false)
+        {
+            output = output.Where(f => f.Name.Contains(searchText, StringComparison.InvariantCultureIgnoreCase)).ToList();
+        }
+
+        files = output;
+        await SaveStates();
+    }
+
+    private async Task<IEnumerable<string>> SearchImage(string value)
+    {
+        searchText = value;
+        var output = initialFiles;
+        if (string.IsNullOrWhiteSpace(searchText) is false)
+        {
+            output = output.Where(f => f.Name.Contains(value, StringComparison.InvariantCultureIgnoreCase)).ToList();
+        }
+
+        await SaveStates();
+        return output.Select(f => f.Name);
     }
 
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
@@ -59,29 +174,94 @@
         foreach (var f in files)
         {
             this.files.Add(f);
+            loadedFilesCount = this.files.Count;
+            CalculateProgress();
         }
+
+        initialFiles = this.files;
     }
 
     private async Task ConvertAndDownloadFiles()
     {
-        if (files.Count == 0)
+        try
         {
-            return;
-        }
+            errorMessage = "";
+            if (files.Count == 0)
+            {
+                return;
+            }
 
-        foreach (var f in files)
+            foreach (var f in files)
+            {
+                await fileService.DownloadFileAsync(f, selectedFilePath, selectedFileExtension);
+            }
+        }
+        catch (Exception ex)
         {
-            await fileService.DownloadFileAsync(f, selectedPath, selectedExtension);
+            GetAlertSeverity("Error");
+            errorMessage = ex.Message;
         }
     }
 
     private string GetButtonClass(string path)
     {
-        if (selectedPath == path)
+        if (selectedFilePath == path)
         {
             return "text-success";
         }
 
         return "text-danger";
+    }
+
+    private string GetFilesCount()
+    {
+        string output = files?.Count switch
+        {
+            0 => "0 files",
+            1 => "1 file",
+            _ => $"{files?.Count} files",
+        };
+
+        return output;
+    }
+
+    private void ClearFiles()
+    {
+        files.Clear();
+        initialFiles.Clear();
+        CalculateProgress();
+        loadedFilesCount = 0;
+    }
+
+    private void CalculateProgress()
+    {
+        int totalLoadedFiles = files.Count;
+        if (files.Count == 0)
+        {
+            progress = 0;
+            bufferValue = 0;
+        }
+        else
+        {
+            double progress = (double)loadedFilesCount / totalLoadedFiles * 100;
+            double bufferValue = progress + 5;
+            this.progress = progress;
+            this.bufferValue = bufferValue;
+        }
+    }
+
+    private void GetAlertSeverity(string alert)
+    {
+        string output = alert switch
+        {
+            "Normal" => "Severity.Normal",
+            "Info" => "Severity.Info",
+            "Success" => "Severity.Success",
+            "Warning" => "Severity.Warning",
+            "Error" => "Severity.Error",
+            _ => "Severity.Info",
+        };
+
+        alertClass = alert;
     }
 }
