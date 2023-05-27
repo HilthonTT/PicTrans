@@ -34,6 +34,7 @@ public class DefaultDataService : IDefaultDataService
             ".docx",
             ".pdf",
             ".txt",
+            ".html",
         };
     }
 }
