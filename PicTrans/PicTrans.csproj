@@ -51,6 +51,7 @@
 
     <ItemGroup>
         <PackageReference Include="DocX" Version="2.4.0" />
+        <PackageReference Include="itext7" Version="8.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
         <PackageReference Include="MudBlazor" Version="6.3.0" />
         <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />

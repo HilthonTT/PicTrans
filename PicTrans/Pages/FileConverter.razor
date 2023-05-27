@@ -3,8 +3,7 @@
 @inject IDefaultDataService defaultDataService
 
 <MudContainer>
-    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles"
-                   Accept=".txt;.pdf;.docx">
+    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
         <ButtonTemplate>
             <MudButton HtmlTag="label"
                        Variant="Variant.Filled"
@@ -16,9 +15,27 @@
             </MudButton>
         </ButtonTemplate>
     </MudFileUpload>
-    <MudButton OnClick="ConvertAndDownloadFiles">
-        Convert And Download
-    </MudButton>
+    <MudButtonGroup Class="mt-2">
+        @foreach (var p in folderPaths)
+        {
+            <MudButton Class="@GetButtonClass(p)"
+                       OnClick="(() => selectedPath = p)">
+                @p
+            </MudButton>
+        }
+    </MudButtonGroup>
+    <MudSelect Label="Convert to:" @bind-Value="selectedExtension" Class="mud-input-root text-start">
+        @foreach (var e in fileExtensions)
+        {
+            <MudSelectItem Value="@e">@e</MudSelectItem>
+        }
+    </MudSelect>
+    @if (files.Count > 0)
+    {
+        <MudButton OnClick="ConvertAndDownloadFiles">
+            Convert And Download
+        </MudButton>
+    }
 </MudContainer>
 
 @code {
@@ -56,5 +73,15 @@
         {
             await fileService.DownloadFileAsync(f, selectedPath, selectedExtension);
         }
+    }
+
+    private string GetButtonClass(string path)
+    {
+        if (selectedPath == path)
+        {
+            return "text-success";
+        }
+
+        return "text-danger";
     }
 }

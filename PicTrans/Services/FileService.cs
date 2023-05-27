@@ -1,7 +1,9 @@
-﻿using Syncfusion.Pdf;
-using Microsoft.AspNetCore.Components.Forms;
+﻿using Microsoft.AspNetCore.Components.Forms;
 using System.Text;
 using Xceed.Words.NET;
+using iText.Kernel.Pdf.Canvas.Parser.Listener;
+using iText.Kernel.Pdf.Canvas.Parser;
+using iText.Kernel.Pdf;
 using Syncfusion.Pdf.Graphics;
 using PointF = Syncfusion.Drawing.PointF;
 
@@ -35,19 +37,32 @@ public class FileService : IFileService
         string fileContents = await streamReader.ReadToEndAsync();
 
         using var memoryStream = new MemoryStream();
-        using var document = new PdfDocument();
-
+        using var document = new Syncfusion.Pdf.PdfDocument();
         var page = document.Pages.Add();
 
-        var font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
-        var textElement = new PdfTextElement(fileContents, font);
+        if (IsWordDocument(inputFile))
+        {
+            using var inputStream = new MemoryStream();
+            await inputFile.OpenReadStream(MaxFileSize).CopyToAsync(inputStream);
+            inputStream.Position = 0;
 
-        var layoutResult = textElement.Draw(page, new PointF(0, 0));
+            using var wordDocument = DocX.Load(inputStream);
+
+            string wordText = wordDocument.Text;
+
+            var font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
+            var textElement = new PdfTextElement(wordText, font);
+            var layoutResult = textElement.Draw(page, new PointF(0, 0));
+        }
+        else
+        {
+            var font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
+            var textElement = new PdfTextElement(fileContents, font);
+            var layoutResult = textElement.Draw(page, new PointF(0, 0));
+        }
 
         document.Save(memoryStream);
-
         byte[] pdfBytes = memoryStream.ToArray();
-
         memoryStream.Position = 0;
 
         return pdfBytes;
@@ -72,15 +87,42 @@ public class FileService : IFileService
 
     private static async Task<byte[]> ConvertToTxtAsync(IBrowserFile inputFile)
     {
-        using var streamReader = new StreamReader(inputFile.OpenReadStream(MaxFileSize));
-        using var memoryStream = new MemoryStream();
-        await streamReader.BaseStream.CopyToAsync(memoryStream);
+        if (IsWordDocument(inputFile))
+        {
+            using var streamReader = new StreamReader(inputFile.OpenReadStream(MaxFileSize));
+            using var memoryStream = new MemoryStream();
+            await streamReader.BaseStream.CopyToAsync(memoryStream);
 
-        using var doc = DocX.Load(memoryStream);
+            using var doc = DocX.Load(memoryStream);
+            string textContent = doc.Text;
 
-        string textContent = doc.Text;
+            return Encoding.UTF8.GetBytes(textContent);
+        }
+        else if (IsPdfDocument(inputFile))
+        {
+            using var streamReader = new StreamReader(inputFile.OpenReadStream(MaxFileSize));
+            using var memoryStream = new MemoryStream();
+            await streamReader.BaseStream.CopyToAsync(memoryStream);
 
-        return Encoding.UTF8.GetBytes(textContent);
+            var textContent = new StringBuilder();
+            memoryStream.Position = 0;
+            var pdfReader = new PdfReader(memoryStream);
+            var pdfDocument = new PdfDocument(pdfReader);
+            var strategy = new LocationTextExtractionStrategy();
+
+            for (int page = 1; page <= pdfDocument.GetNumberOfPages(); page++)
+            {
+                var currentPage = pdfDocument.GetPage(page);
+                string text = PdfTextExtractor.GetTextFromPage(currentPage, strategy);
+                textContent.Append(text);
+            }
+
+            return Encoding.UTF8.GetBytes(textContent.ToString());
+        }
+        else
+        {
+            throw new NotSupportedException("Unsupported file format.");
+        }
     }
 
     private static async Task<byte[]> ConvertAsync(
@@ -94,5 +136,17 @@ public class FileService : IFileService
             ".txt" => await ConvertToTxtAsync(file),
             _ => throw new NotImplementedException($"Unsupported file type: {selectedExtension}"),
         };
+    }
+
+    private static bool IsWordDocument(IBrowserFile inputFile)
+    {
+        var extension = Path.GetExtension(inputFile.Name);
+        return extension == ".docx" || extension == ".doc";
+    }
+
+    private static bool IsPdfDocument(IBrowserFile inputFile)
+    {
+        var extension = Path.GetExtension(inputFile.Name);
+        return extension == ".pdf";
     }
 }
