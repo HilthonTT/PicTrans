@@ -1,6 +1,7 @@
 ﻿@inject IImageService imageService
 @inject IPathService pathService
 @inject IDefaultDataService defaultDataService
+@inject IDialogService dialogService
 
 <MudCard Class="mb-3">
     <MudCardHeader>
@@ -44,18 +45,12 @@
         </MudSelect>
     </div>
     <MudCardActions>
-        @if (isConverted)
-        {
-            <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Secondary" OnClick="DownloadImage">
-                Download
-            </MudButton>
-        }
-        else
-        {
-            <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" OnClick="ConvertImage">
-                Convert
-            </MudButton>
-        }
+        <MudButton 
+            Variant="Variant.Text" 
+            Color="MudBlazor.Color.Primary" 
+            OnClick="ConvertAndDownload">
+            Convert And Download
+        </MudButton>
     </MudCardActions>
 </MudCard>
 
@@ -68,10 +63,9 @@
     [EditorRequired]
     public string SelectedPath { get; set; }
 
+    private IDialogReference dialogReference;
     private string selectedExtension = ".png";
     private string sourcePath = "";
-    private bool isConverted = false;
-    private MemoryStream convertedFile;
     private List<string> pictureExtensions = new();
 
     protected override async Task OnInitializedAsync()
@@ -90,20 +84,15 @@
         sourcePath = await imageService.LoadImageFileAsync(BrowserFile);
     }
 
-    private async Task ConvertImage()
+    private async Task ConvertAndDownload()
     {
-        await imageService.ConvertImageAsync(BrowserFile, selectedExtension);
-        isConverted = true;
+        await imageService.ConvertAndDownloadAsync(BrowserFile, SelectedPath, selectedExtension);
+        OpenDialog($"Successfully downloaded {BrowserFile.Name}");
     }
 
-    private async Task DownloadImage()
+    private void OpenDialog(string title)
     {
-        string filePath = pathService.GetFilePath(BrowserFile, SelectedPath, selectedExtension);
-        using (var outputStream = new FileStream(filePath, FileMode.Create))
-        {
-            await convertedFile.CopyToAsync(outputStream);
-        }
-
-        isConverted = false;
+        var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
+        dialogReference = dialogService.Show<Dialog>(title, topCenter);
     }
 }

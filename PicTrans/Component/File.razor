@@ -1,10 +1,11 @@
 ﻿@inject IDefaultDataService defaultDataService
 @inject IFileService fileService
+@inject IDialogService dialogService
 
 <MudCard Class="mb-3">
     <MudCardHeader>
         <CardHeaderContent>
-            <MudText Typo="Typo.h6">Size: @BrowserFile.Name</MudText>
+            <MudText Typo="Typo.h6">@BrowserFile.Name</MudText>
         </CardHeaderContent>
         <CardHeaderActions>
             <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Default" />
@@ -26,7 +27,7 @@
         <MudButton 
             Variant="Variant.Text" 
             Color="MudBlazor.Color.Primary"
-            @onclick="ConvertAndDownloadFile">
+            OnClick="ConvertAndDownloadFile">
             Convert and Download
         </MudButton>
     </MudCardActions>
@@ -41,6 +42,7 @@
     [EditorRequired]
     public string SelectedPath { get; set; }
 
+    private IDialogReference dialogReference;
     private string selectedExtension = ".txt";
     private MemoryStream convertedFile;
     private List<string> fileExtensions = new();
@@ -53,5 +55,12 @@
     private async Task ConvertAndDownloadFile()
     {
         await fileService.DownloadFileAsync(BrowserFile, SelectedPath, selectedExtension);
+        OpenDialog($"Successfully downloaded {BrowserFile.Name}");
+    }
+
+    private void OpenDialog(string title)
+    {
+        var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
+        dialogReference = dialogService.Show<Dialog>(title, topCenter);
     }
 }
