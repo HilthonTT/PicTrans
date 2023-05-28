@@ -42,7 +42,7 @@ public class FileService : IFileService
         }
     }
 
-    private static async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile, string outputPath)
+    private async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile, string outputPath)
     {
         if (IsPdfDocument(inputFile))
         {
@@ -62,15 +62,16 @@ public class FileService : IFileService
             await inputFile.OpenReadStream(MaxFileSize).CopyToAsync(inputStream);
             inputStream.Position = 0;
 
-            using var wordDocument = DocX.Load(inputStream);
+            using (var wordDocument = DocX.Load(inputStream))
+            {
+                string wordText = wordDocument.Text;
 
-            string wordText = wordDocument.Text;
-
-            var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
-            var text = new Paragraph(wordText).SetFont(font).SetFontSize(12f);
-            var document = new Document(pdfDocument, PageSize.A4);
-            document.Add(text);
-            document.Close();
+                var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                var text = new Paragraph(wordText).SetFont(font).SetFontSize(12f);
+                var document = new Document(pdfDocument, PageSize.A4);
+                document.Add(text);
+                document.Close();
+            }
         }
         else if (IsHtmlDocument(inputFile))
         {
@@ -90,19 +91,26 @@ public class FileService : IFileService
         return default;
     }
 
-    private static async Task<byte[]> ConvertToWordAsync(IBrowserFile inputFile)
+    private async Task<byte[]> ConvertToWordAsync(IBrowserFile inputFile)
     {
         if (IsWordDocument(inputFile))
         {
             return default;
         }
 
-        var fileContent = new byte[inputFile.Size];
+        if (IsPdfDocument(inputFile))
+        {
+            return await ConvertPdfToWordAsync(inputFile);
+        }
+
+        byte[] fileContent = new byte[inputFile.Size];
         await inputFile.OpenReadStream(MaxFileSize).ReadAsync(fileContent);
+
+        byte[] cleanedContent = RemoveInvalidCharacters(fileContent);
 
         var document = DocX.Create(new MemoryStream());
 
-        string text = Encoding.UTF8.GetString(fileContent);
+        string text = Encoding.UTF8.GetString(cleanedContent);
         document.InsertParagraph(text);
 
         var memoryStream = new MemoryStream();
@@ -112,7 +120,38 @@ public class FileService : IFileService
         return memoryStream.ToArray();
     }
 
-    private static async Task<byte[]> ConvertToTxtAsync(IBrowserFile inputFile)
+    private static async Task<byte[]> ConvertPdfToWordAsync(IBrowserFile inputFile)
+    {
+        using var memoryStream = new MemoryStream();
+        await inputFile.OpenReadStream(MaxFileSize).CopyToAsync(memoryStream);
+        memoryStream.Position = 0;
+
+        using var pdfReader = new PdfReader(memoryStream);
+        var pdfDocument = new PdfDocument(pdfReader);
+
+        using var document = DocX.Create(memoryStream);
+        var paragraph = document.InsertParagraph();
+
+        for (int pageNumber = 1; pageNumber <= pdfDocument.GetNumberOfPages(); pageNumber++)
+        {
+            var page = pdfDocument.GetPage(pageNumber);
+            var pdfContent = PdfTextExtractor.GetTextFromPage(page);
+            paragraph.Append(pdfContent);
+        }
+
+        document.Save();
+        document.Dispose();
+
+        return memoryStream.ToArray();
+    }
+
+    private static byte[] RemoveInvalidCharacters(byte[] content)
+    {
+        byte[] cleanedContent = content.Where(b => b >= 32 && b <= 126).ToArray();
+        return cleanedContent;
+    }
+
+    private async Task<byte[]> ConvertToTxtAsync(IBrowserFile inputFile)
     {
         if (IsTextDocument(inputFile))
         {
@@ -166,7 +205,7 @@ public class FileService : IFileService
         }
     }
 
-    private static async Task<byte[]> ConvertToHtmlAsync(IBrowserFile inputFile)
+    private async Task<byte[]> ConvertToHtmlAsync(IBrowserFile inputFile)
     {
         if (IsHtmlDocument(inputFile))
         {
@@ -236,6 +275,69 @@ public class FileService : IFileService
         };
     }
 
+    private static string ConvertHtmlToPlainText(string htmlContent)
+    {
+        HtmlDocument htmlDocument = new HtmlDocument();
+        htmlDocument.LoadHtml(htmlContent);
+
+        StringWriter stringWriter = new StringWriter();
+        ConvertToPlainText(htmlDocument.DocumentNode, stringWriter);
+
+        return stringWriter.ToString();
+    }
+
+    private static void ConvertToPlainText(HtmlNode node, TextWriter textWriter)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is HtmlTextNode textNode)
+        {
+            string text = textNode.Text;
+            textWriter.Write(text);
+        }
+        else if (node is HtmlCommentNode)
+        {
+            // Ignore HTML comments.
+            return;
+        }
+        else
+        {
+            foreach (HtmlNode childNode in node.ChildNodes)
+            {
+                ConvertToPlainText(childNode, textWriter);
+            }
+
+            if (IsLineBreakTag(node.Name))
+            {
+                textWriter.WriteLine();
+            }
+            else if (IsHeadingTag(node.Name))
+            {
+                textWriter.WriteLine();
+                textWriter.WriteLine(node.InnerText);
+                textWriter.WriteLine();
+            }
+            else if (node.Name == "li")
+            {
+                textWriter.Write("• ");
+                textWriter.WriteLine(node.InnerText);
+            }
+        }
+    }
+
+    private static bool IsLineBreakTag(string tagName)
+    {
+        return tagName == "p" || tagName == "br";
+    }
+
+    private static bool IsHeadingTag(string tagName)
+    {
+        return tagName.StartsWith("h", StringComparison.OrdinalIgnoreCase) && tagName.Length == 2 && char.IsDigit(tagName[1]);
+    }
+
     private static bool IsTextDocument(IBrowserFile inputFile)
     {
         string extension = Path.GetExtension(inputFile.Name);
@@ -257,65 +359,6 @@ public class FileService : IFileService
     private static bool IsHtmlDocument(IBrowserFile inputFile)
     {
         string extension = Path.GetExtension(inputFile.Name);
-        return extension == ".html";
-    }
-
-    private static string ConvertHtmlToPlainText(string htmlContent)
-    {
-        HtmlDocument htmlDocument = new HtmlDocument();
-        htmlDocument.LoadHtml(htmlContent);
-
-        StringWriter stringWriter = new StringWriter();
-        ConvertToPlainText(htmlDocument.DocumentNode, stringWriter);
-
-        return stringWriter.ToString();
-    }
-
-    private static void ConvertToPlainText(HtmlNode node, TextWriter textWriter)
-    {
-        if (node is null)
-            return;
-
-        if (node is HtmlTextNode)
-        {
-            string text = ((HtmlTextNode)node).Text;
-            textWriter.Write(text);
-        }
-        else if (node is HtmlCommentNode)
-        {
-            // Ignore HTML comments.
-            return;
-        }
-        else
-        {
-            foreach (HtmlNode childNode in node.ChildNodes)
-            {
-                ConvertToPlainText(childNode, textWriter);
-            }
-
-            if (node.Name == "p" || node.Name == "br")
-            {
-                // Add line breaks for <p> and <br> tags.
-                textWriter.WriteLine();
-            }
-            else if (node.Name == "h1" || 
-                node.Name == "h2" || 
-                node.Name == "h3" || 
-                node.Name == "h4" || 
-                node.Name == "h5" || 
-                node.Name == "h6")
-            {
-                // Add line breaks and formatting for heading tags.
-                textWriter.WriteLine();
-                textWriter.WriteLine(node.InnerText);
-                textWriter.WriteLine();
-            }
-            else if (node.Name == "li")
-            {
-                // Add bullets for list items.
-                textWriter.Write("• ");
-                textWriter.WriteLine(node.InnerText);
-            }
-        }
+        return extension == ".html" || extension == ".htm";
     }
 }

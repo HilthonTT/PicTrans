@@ -50,7 +50,23 @@ public class ImageService : IImageService
         await DownloadFileAsync(imageFile, compressedStream, selectedPath, fileExtension);
     }
 
-    public async Task DownloadFileAsync(
+    public async Task ConvertAndDownloadAsync(
+        IBrowserFile file,
+        string selectedPath,
+        string selectedExtension)
+    {
+        using var stream = file.OpenReadStream(MaxFileSize);
+        using var image = await Image.LoadAsync(stream);
+        using var convertedStream = new MemoryStream();
+        await GetEncoderAsync(image, convertedStream, selectedExtension);
+
+        string filePath = _pathService.GetFilePath(file, selectedPath, selectedExtension);
+        using var outputStream = new FileStream(filePath, FileMode.Create);
+        convertedStream.Position = 0;
+        await convertedStream.CopyToAsync(outputStream);
+    }
+
+    private async Task DownloadFileAsync(
         IBrowserFile file,
         MemoryStream convertedImage,
         string selectedPath,
@@ -60,23 +76,6 @@ public class ImageService : IImageService
         using var outputStream = new FileStream(filePath, FileMode.Create);
         convertedImage.Position = 0;
         await convertedImage.CopyToAsync(outputStream);
-    }
-
-    public async Task ConvertImageAsync(
-        IBrowserFile file,
-        string selectedExtension,
-        List<MemoryStream> convertedImages = null)
-    {
-        using var stream = file.OpenReadStream(MaxFileSize);
-        using var image = await Image.LoadAsync(stream);
-        using var convertedStream = new MemoryStream();
-        await GetEncoderAsync(image, convertedStream, selectedExtension);
-        if (convertedImages is not null)
-        {
-            convertedStream.Position = 0;
-
-            convertedImages.Add(new MemoryStream(convertedStream.ToArray()));
-        }
     }
 
     private static async Task GetEncoderAsync(
