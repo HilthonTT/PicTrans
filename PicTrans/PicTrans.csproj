@@ -53,12 +53,12 @@
         <PackageReference Include="DocX" Version="2.4.0" />
         <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
         <PackageReference Include="itext7" Version="8.0.0" />
+        <PackageReference Include="itext7.bouncy-castle-adapter" Version="8.0.0" />
+        <PackageReference Include="itext7.pdfhtml" Version="5.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
         <PackageReference Include="MudBlazor" Version="6.3.1" />
-        <PackageReference Include="Select.HtmlToPdf" Version="22.2.0" />
         <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
         <PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
-        <PackageReference Include="Syncfusion.Pdf.Net.Core" Version="21.2.6" />
     </ItemGroup>
 
 </Project>

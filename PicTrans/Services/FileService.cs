@@ -5,10 +5,15 @@ using Xceed.Words.NET;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf;
-using Syncfusion.Pdf.Graphics;
-using PointF = Syncfusion.Drawing.PointF;
+using iText.Html2pdf;
+using iText.IO.Font.Constants;
+using iText.Kernel.Font;
+using iText.Layout.Element;
+using iText.Layout;
+using iText.Kernel.Geom;
 using System.Web;
 using HtmlAgilityPack;
+using Path = System.IO.Path;
 
 namespace PicTrans.Services;
 public class FileService : IFileService
@@ -28,7 +33,7 @@ public class FileService : IFileService
     {
         byte[] convertedFileContent;
 
-        convertedFileContent = await ConvertAsync(file, selectedExtension);
+        convertedFileContent = await ConvertAsync(file, selectedPath, selectedExtension);
 
         if (convertedFileContent is not null)
         {
@@ -37,7 +42,7 @@ public class FileService : IFileService
         }
     }
 
-    private static async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile)
+    private static async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile, string outputPath)
     {
         if (IsPdfDocument(inputFile))
         {
@@ -47,9 +52,9 @@ public class FileService : IFileService
         using var streamReader = new StreamReader(inputFile.OpenReadStream(MaxFileSize));
         string fileContents = await streamReader.ReadToEndAsync();
 
-        using var memoryStream = new MemoryStream();
-        using var document = new Syncfusion.Pdf.PdfDocument();
-        var page = document.Pages.Add();
+        using var pdfWriter = new PdfWriter(outputPath);
+        using var pdfDocument = new PdfDocument(pdfWriter);
+        var page = pdfDocument.AddNewPage();
 
         if (IsWordDocument(inputFile))
         {
@@ -61,26 +66,28 @@ public class FileService : IFileService
 
             string wordText = wordDocument.Text;
 
-            var font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
-            var textElement = new PdfTextElement(wordText, font);
-            var layoutResult = textElement.Draw(page, new PointF(0, 0));
+            var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var text = new Paragraph(wordText).SetFont(font).SetFontSize(12f);
+            var document = new Document(pdfDocument, PageSize.A4);
+            document.Add(text);
+            document.Close();
         }
         else if (IsHtmlDocument(inputFile))
         {
-            return default;
+            using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(fileContents));
+            var converterProperties = new ConverterProperties();
+            HtmlConverter.ConvertToPdf(htmlStream, pdfDocument, converterProperties);
         }
         else
         {
-            var font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
-            var textElement = new PdfTextElement(fileContents, font);
-            var layoutResult = textElement.Draw(page, new PointF(0, 0));
+            var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            var text = new Paragraph(fileContents).SetFont(font).SetFontSize(12f);
+            var document = new Document(pdfDocument, PageSize.A4);
+            document.Add(text);
+            document.Close();
         }
 
-        document.Save(memoryStream);
-        byte[] pdfBytes = memoryStream.ToArray();
-        memoryStream.Position = 0;
-
-        return pdfBytes;
+        return default;
     }
 
     private static async Task<byte[]> ConvertToWordAsync(IBrowserFile inputFile)
@@ -149,7 +156,6 @@ public class FileService : IFileService
             using var streamReader = new StreamReader(inputFile.OpenReadStream(MaxFileSize));
             string htmlContent = await streamReader.ReadToEndAsync();
 
-            // Convert HTML to plain text using a suitable library or method.
             string textContent = ConvertHtmlToPlainText(htmlContent);
 
             return Encoding.UTF8.GetBytes(textContent);
@@ -214,13 +220,15 @@ public class FileService : IFileService
         }
     }
 
-    private static async Task<byte[]> ConvertAsync(
+    private async Task<byte[]> ConvertAsync(
         IBrowserFile file,
+        string selectedPath,
         string selectedExtension)
     {
+        string outputPath = _pathService.GetFilePath(file, selectedPath, selectedExtension);
         return selectedExtension switch
         {
-            ".pdf" => await ConvertToPdfAsync(file),
+            ".pdf" => await ConvertToPdfAsync(file, outputPath),
             ".docx" => await ConvertToWordAsync(file),
             ".txt" => await ConvertToTxtAsync(file),
             ".html" => await ConvertToHtmlAsync(file),
@@ -265,7 +273,7 @@ public class FileService : IFileService
 
     private static void ConvertToPlainText(HtmlNode node, TextWriter textWriter)
     {
-        if (node == null)
+        if (node is null)
             return;
 
         if (node is HtmlTextNode)
@@ -290,7 +298,12 @@ public class FileService : IFileService
                 // Add line breaks for <p> and <br> tags.
                 textWriter.WriteLine();
             }
-            else if (node.Name == "h1" || node.Name == "h2" || node.Name == "h3" || node.Name == "h4" || node.Name == "h5" || node.Name == "h6")
+            else if (node.Name == "h1" || 
+                node.Name == "h2" || 
+                node.Name == "h3" || 
+                node.Name == "h4" || 
+                node.Name == "h5" || 
+                node.Name == "h6")
             {
                 // Add line breaks and formatting for heading tags.
                 textWriter.WriteLine();
