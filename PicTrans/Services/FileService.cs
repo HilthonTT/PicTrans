@@ -42,7 +42,7 @@ public class FileService : IFileService
         }
     }
 
-    private async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile, string outputPath)
+    private static async Task<byte[]> ConvertToPdfAsync(IBrowserFile inputFile, string outputPath)
     {
         if (IsPdfDocument(inputFile))
         {
@@ -91,7 +91,7 @@ public class FileService : IFileService
         return default;
     }
 
-    private async Task<byte[]> ConvertToWordAsync(IBrowserFile inputFile)
+    private static async Task<byte[]> ConvertToWordAsync(IBrowserFile inputFile)
     {
         if (IsWordDocument(inputFile))
         {
@@ -151,7 +151,7 @@ public class FileService : IFileService
         return cleanedContent;
     }
 
-    private async Task<byte[]> ConvertToTxtAsync(IBrowserFile inputFile)
+    private static async Task<byte[]> ConvertToTxtAsync(IBrowserFile inputFile)
     {
         if (IsTextDocument(inputFile))
         {
