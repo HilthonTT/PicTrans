@@ -18,7 +18,7 @@
     <MudGrid>
         <MudItem xs="12" Class="text-center">
             <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles" 
-                Accept=".png;.jpeg.;.jpg;.gif;.bmp;.tiff;.webp;">
+                Accept=".png,.jpeg.,.jpg,.gif,.bmp,.tiff,.webp;">
                 <ButtonTemplate>
                     <MudButton 
                         HtmlTag="label"
@@ -54,9 +54,10 @@
             <MudProgressLinear 
                 Color="MudBlazor.Color.Primary" 
                 Buffer="true" 
-                Value="progress" 
-                BufferValue="bufferValue" 
-                Class="my-7" />
+                Value="@progress" 
+                BufferValue="@bufferValue" 
+                Class="my-7" 
+                Max="100"/>
             <MudAutocomplete T="string" Label="Search" 
                 Variant="Variant.Outlined" 
                 @bind-Value="searchText" 
@@ -88,22 +89,13 @@
                 <div></div> <!-- Add an empty div to create spaces -->
                 <div class="center-children">
                     <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
-                        @if (isConverted is false)
+                        @if (files.Count > 0)
                         {
                             <MudButton 
                                 Variant="Variant.Outlined" 
                                 Color="MudBlazor.Color.Primary" 
-                                OnClick="ConvertImages">
-                                Convert
-                            </MudButton>
-                        }
-                        else
-                        {
-                            <MudButton 
-                                Variant="Variant.Outlined" 
-                                Color="MudBlazor.Color.Primary" 
-                                OnClick="DownloadImages">
-                                Download
+                                OnClick="ConvertAndDownloadImage">
+                                Convert And Download
                             </MudButton>
                         }
                         @if (files.Count > 0)
@@ -148,11 +140,10 @@
     private int maxHeight = 800;
     private double progress = 0;
     private double bufferValue = 0;
-    private bool isConverted = false;
     private bool isCompressedOption = false;
     private List<IBrowserFile> files = new();
     private List<IBrowserFile> initialFiles = new();
-    private List<MemoryStream> convertedImages = new();
+    private List<IBrowserFile> downloadedFiles = new();
     private List<string> pictureExtensions = new();
     private List<string> folderPaths = new();
 
@@ -212,105 +203,72 @@
 
     private void UploadFiles(IReadOnlyList<IBrowserFile> files)
     {
-        isConverted = false;
+        initialFiles.Clear();
+        this.files.Clear();
+
         foreach (var f in files)
         {
             this.files.Add(f);
             loadedFilesCount = this.files.Count;
-            CalculateProgress();
+            CalculateProgress(loadedFilesCount);
         }
 
         initialFiles = this.files;
     }
 
-    private async Task ConvertImages()
+    private async Task ConvertAndDownloadImage()
     {
         try
         {
-            errorMessage = "";
-            if (files.Count == 0)
+            ClearAlert();
+            if (files.Count <= 0)
             {
-                GetAlertSeverity("Warning");
-                errorMessage = "No files to convert.";
+                OpenAlertWarning("No files to download.");
                 return;
             }
 
-            convertedImages.Clear();
-
-            foreach (var file in files)
-            {
-                await imageService.ConvertImageAsync(file, selectedExtension, convertedImages);
-            }
-
-            await SaveStates();
-            isConverted = true;
-            OpenDialog($"Successfully converted your files to {selectedExtension}");
-        }
-        catch (Exception ex)
-        {
-            GetAlertSeverity("Error");
-            errorMessage = ex.Message;
-        }
-    }
-
-    private async Task DownloadImages()
-    {
-        try
-        {
-            errorMessage = "";
-            if (convertedImages.Count == 0 || files.Count == 0)
-            {
-                GetAlertSeverity("Warning");
-                errorMessage = "No converted files to download.";
-                return;
-            }
-
+            progress = 0;
+            bufferValue = 0;
+            downloadedFiles.Clear();
             if (isCompressedOption)
             {
-                await ProcessImagesAsync(CompressAndDownloadImageAsync);
+                await ConvertAndDownloadWithCompressing();
             }
             else
             {
-                await ProcessImagesAsync(DownloadImageAsync);
+                await ConvertAndDownloadWithoutCompressing();
             }
 
-            isConverted = false;
-            OpenDialog($"Downloaded to {selectedPath}.");
+            OpenDialog($"Successfully downloaded images to {selectedPath}");
+            await SaveStates();
         }
         catch (Exception ex)
         {
-            GetAlertSeverity("Error");
-            errorMessage = ex.Message;
+            OpenAlertError(ex.Message);
         }
     }
 
-    private async Task ProcessImagesAsync(Func<IBrowserFile, MemoryStream, string, string, Task> imageProcessingFunc)
+    private async Task ConvertAndDownloadWithoutCompressing()
     {
         for (int i = 0; i < files.Count; i++)
         {
-            var file = files[i];
-            var convertedImage = convertedImages[i];
-
-            await imageProcessingFunc(file, convertedImage, selectedPath, selectedExtension);
+            var f = files[i];
+            await imageService.ConvertAndDownloadAsync(f, selectedPath, selectedExtension);
+            downloadedFiles.Add(f);
+            CalculateProgress(downloadedFiles.Count);
         }
     }
 
-    private async Task CompressAndDownloadImageAsync(IBrowserFile file, 
-        MemoryStream convertedImage, 
-        string selectedPath, 
-        string selectedExtension)
+    private async Task ConvertAndDownloadWithCompressing()
     {
-        await imageService.CompressImageAndDownloadAsync(file, selectedPath, selectedExtension, maxWidth, maxHeight);
+        for (int i = 0; i < files.Count; i++)
+        {
+            var f = files[i];
+            await imageService.CompressImageAndDownloadAsync(f, selectedPath, selectedExtension, maxWidth, maxHeight);
+            downloadedFiles.Add(f);
+            CalculateProgress(downloadedFiles.Count);
+        }
     }
-
-    private async Task DownloadImageAsync(IBrowserFile file, 
-        MemoryStream convertedImage, 
-        string selectedPath, 
-        string selectedExtension)
-    {
-        await imageService.DownloadFileAsync(file, convertedImage, selectedPath, selectedExtension);
-    }
-
 
     private string GetButtonClass(string path)
     {
@@ -353,32 +311,49 @@
     {
         files.Clear();
         initialFiles.Clear();
-        convertedImages.Clear();
-        CalculateProgress();
+        downloadedFiles.Clear();
         loadedFilesCount = 0;
-        isConverted = false;
+        progress = 0;
+        bufferValue = 0;
     }
 
-    private void CalculateProgress()
+    private void CalculateProgress(int count)
     {
-        int totalLoadedFiles = files.Count;
-        if (files.Count == 0)
+        if (files.Count <= 0)
         {
             progress = 0;
             bufferValue = 0;
         }
         else
         {
-            double progress = (double)loadedFilesCount / totalLoadedFiles * 100;
-            double bufferValue = progress + 5;
-            this.progress = progress;
-            this.bufferValue = bufferValue;
+            progress = (double)count / files.Count * 100;
+            bufferValue = progress + 5;    
         }
+
+        StateHasChanged();
     }
 
     private void OpenDialog(string title)
     {
         var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
         dialogReference = dialogService.Show<Dialog>(title, topCenter);
+    }
+
+    private void ClearAlert()
+    {
+        GetAlertSeverity("");
+        errorMessage = "";
+    }
+
+    private void OpenAlertWarning(string message)
+    {
+        GetAlertSeverity("Warning");
+        errorMessage = message;
+    }
+
+    private void OpenAlertError(string message)
+    {
+        GetAlertSeverity("Error");
+        errorMessage = message;
     }
 }

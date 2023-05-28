@@ -17,7 +17,7 @@
     <MudGrid>
         <MudItem xs="12" Class="text-center">
             <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles"
-                           Accept=".docx,.txt,.pdf">
+                           Accept=".docx,.txt,.pdf,.html,.htm">
                 <ButtonTemplate>
                     <MudButton HtmlTag="label"
                                Variant="Variant.Filled"
@@ -110,9 +110,9 @@
     private string errorMessage = "";
     private double progress = 0;
     private double bufferValue = 0;
-    private int loadedFilesCount = 0;
     private List<IBrowserFile> files = new();
     private List<IBrowserFile> initialFiles = new();
+    private List<IBrowserFile> downloadedFiles = new();
     private List<string> fileExtensions = new();
     private List<string> folderPaths = new();
 
@@ -174,8 +174,7 @@
         foreach (var f in files)
         {
             this.files.Add(f);
-            loadedFilesCount = this.files.Count;
-            CalculateProgress();
+            CalculateProgress(this.files.Count);
         }
 
         initialFiles = this.files;
@@ -185,21 +184,32 @@
     {
         try
         {
-            errorMessage = "";
-            if (files.Count == 0)
+            ClearAlert();
+            if (files.Count <= 0)
             {
+                OpenAlertWarning("No files loaded");
                 return;
             }
 
-            foreach (var f in files)
-            {
-                await fileService.DownloadFileAsync(f, selectedFilePath, selectedFileExtension);
-            }
+            progress = 0;
+            bufferValue = 0;
+            downloadedFiles.Clear();
+            await ConvertAndDownloadFile();
         }
         catch (Exception ex)
         {
-            GetAlertSeverity("Error");
-            errorMessage = ex.Message;
+            OpenAlertError(ex.Message);
+        }
+    }
+
+    private async Task ConvertAndDownloadFile()
+    {
+        for (int i = 0; i < files.Count; i++)
+        {
+            var f = files[i];
+            await fileService.DownloadFileAsync(f, selectedFilePath, selectedFileExtension);
+            downloadedFiles.Add(f);
+            CalculateProgress(downloadedFiles.Count);
         }
     }
 
@@ -229,13 +239,12 @@
     {
         files.Clear();
         initialFiles.Clear();
-        CalculateProgress();
-        loadedFilesCount = 0;
+        progress = 0;
+        bufferValue = 0;
     }
 
-    private void CalculateProgress()
+    private void CalculateProgress(int count)
     {
-        int totalLoadedFiles = files.Count;
         if (files.Count == 0)
         {
             progress = 0;
@@ -243,11 +252,11 @@
         }
         else
         {
-            double progress = (double)loadedFilesCount / totalLoadedFiles * 100;
-            double bufferValue = progress + 5;
-            this.progress = progress;
-            this.bufferValue = bufferValue;
+            progress = (double)count / files.Count * 100;
+            bufferValue = progress + 5;
         }
+
+        StateHasChanged();
     }
 
     private void GetAlertSeverity(string alert)
@@ -263,5 +272,23 @@
         };
 
         alertClass = alert;
+    }
+
+    private void ClearAlert()
+    {
+        GetAlertSeverity("");
+        errorMessage = "";
+    }
+
+    private void OpenAlertWarning(string message)
+    {
+        GetAlertSeverity("Warning");
+        errorMessage = message;
+    }
+
+    private void OpenAlertError(string message)
+    {
+        GetAlertSeverity("Error");
+        errorMessage = message;
     }
 }
