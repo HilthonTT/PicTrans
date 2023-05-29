@@ -5,6 +5,8 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Tiff;
 using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Formats.Tga;
+using SixLabors.ImageSharp.Formats.Pbm;
 using Image = SixLabors.ImageSharp.Image;
 using Size = SixLabors.ImageSharp.Size;
 using ResizeMode = SixLabors.ImageSharp.Processing.ResizeMode;
@@ -108,6 +110,14 @@ public class ImageService : IImageService
 
             case ".webp":
                 await image.SaveAsWebpAsync(convertedStream, new WebpEncoder());
+                break;
+
+            case ".tga":
+                await image.SaveAsTgaAsync(convertedStream, new TgaEncoder());
+                break;
+
+            case ".pbm":
+                await image.SaveAsPbmAsync(convertedStream, new PbmEncoder());
                 break;
 
             default:

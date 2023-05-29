@@ -12,6 +12,8 @@ public class DefaultDataService : IDefaultDataService
             ".bmp",
             ".tiff",
             ".webp",
+            ".tga",
+            ".pbm",
         };
     }
 
