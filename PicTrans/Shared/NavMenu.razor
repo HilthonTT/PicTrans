@@ -23,6 +23,7 @@
             @onclick="LoadStatusPage" />
     <MudSpacer />
     <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="MudBlazor.Color.Inherit" @onclick="LoadAuthorGithubPage"/>
+    <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Inherit" @onclick="LoadSettingsPage" />
 </MudAppBar>
 
 @code {
@@ -49,5 +50,10 @@
     private void LoadAuthorGithubPage()
     {
         navManager.NavigateTo("https://github.com/HilthonTT");
+    }
+
+    private void LoadSettingsPage()
+    {
+        navManager.NavigateTo("/Settings");
     }
 }

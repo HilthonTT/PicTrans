@@ -4,7 +4,7 @@
 @inject ISecureStorage secureStorage
 @inject IDialogService dialogService
 
-<MudContainer >
+<MudContainer>
     <h1 class="text-uppercase text-center">
         Compressor
         <MudIcon Icon="@Icons.Material.Filled.Compress" Title="Compress"/>
@@ -18,7 +18,7 @@
     <MudGrid>
         <MudItem xs="12" Class="text-center">
             <EditForm Model="model" OnValidSubmit="CompressAndDownloadImage" Context="c">
-                <MudPaper Class="pa-4">
+                <MudPaper Class="p-4">
                     <ValidationSummary />
                     <DataAnnotationsValidator />
                     @if (string.IsNullOrWhiteSpace(sourcePath))

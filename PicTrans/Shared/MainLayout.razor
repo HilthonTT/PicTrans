@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@inject ISettingsService settingsService
 
 <div>
     <NavMenu />
@@ -9,7 +10,7 @@
     </main>
 </div>
 
-<MudThemeProvider @bind-IsDarkMode="isDarkMode" Theme="theme"/>
+<MudThemeProvider @bind-IsDarkMode="isDarkMode" Theme="theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
@@ -17,4 +18,23 @@
 @code {
     private MudTheme theme = new();
     private bool isDarkMode = true;
+    private SettingsModel settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        settings = await settingsService.GetSettings();
+        if (settings is not null)
+        {
+            isDarkMode = settings.IsDarkMode;
+        }
+        else
+        {
+            isDarkMode = true;
+        }
+    }
 }

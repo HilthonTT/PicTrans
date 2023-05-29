@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
+using PicTrans.Helpers;
 using PicTrans.Services;
 
 namespace PicTrans;
@@ -14,6 +15,7 @@ public static class RegisterServices
         builder.Services.AddSingleton<IDefaultDataService, DefaultDataService>();
         builder.Services.AddSingleton<IPathService, PathService>();
         builder.Services.AddSingleton<IFileService, FileService>();
+        builder.Services.AddSingleton<ISettingsService, SettingsService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

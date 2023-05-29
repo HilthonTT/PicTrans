@@ -1,0 +1,86 @@
+﻿@page "/Settings"
+@inject ISettingsService settingsService
+@inject IDialogService dialogService
+@inject NavigationManager navManager
+
+<MudContainer>
+    <h1 class="text-uppercase text-center">
+        <span>Settings</span>
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Title="Settings" />
+    </h1>
+    @if (string.IsNullOrWhiteSpace(errorMessage) is false)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">
+            @errorMessage
+        </MudAlert>
+    }
+    <MudGrid>
+        <MudItem xs="12" Class="text-center">
+            <MudPaper Class="p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <MudText class="mr-2">Dark Mode:</MudText>
+                    <MudSwitch @bind-Checked="model.IsDarkMode"
+                                Color="MudBlazor.Color.Primary" />
+                </div>
+                <div class="text-center">
+                    <MudButton 
+                        Variant="Variant.Filled"
+                        Color="MudBlazor.Color.Primary"
+                        StartIcon="@Icons.Material.Filled.Save"
+                        Class="w-50" @onclick="SaveSettings">
+                        Save
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+
+@code {
+    private SaveSettingsModel model = new();
+    private SettingsModel settings;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        settings = await settingsService.GetSettings();
+        if (settings is not null)
+        {
+            model.IsDarkMode = settings.IsDarkMode;
+        }
+        else
+        {
+            settings.IsDarkMode = true;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            errorMessage = "";
+            var s = new SettingsModel
+            {
+                IsDarkMode = model.IsDarkMode,
+            };
+
+            if (settings is not null)
+            {
+                s.Id = settings.Id;
+            }
+
+            await settingsService.SaveSettings(s);
+            navManager.NavigateTo("/Settings", true);
+        }
+        catch
+        {
+            errorMessage = "Failed to save settings";
+        }
+    }
+}
