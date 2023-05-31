@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
+using PicTrans.Converters;
 using PicTrans.Helpers;
 using PicTrans.Services;
 
@@ -16,6 +17,12 @@ public static class RegisterServices
         builder.Services.AddSingleton<IPathService, PathService>();
         builder.Services.AddSingleton<IFileService, FileService>();
         builder.Services.AddSingleton<ISettingsService, SettingsService>();
+
+        builder.Services.AddSingleton<IFileChecker, FileChecker>();
+        builder.Services.AddSingleton<IHtmlConverter, HtmlConverter>();
+        builder.Services.AddSingleton<IPdfConverter, PdfConverter>();
+        builder.Services.AddSingleton<IWordConverter, WordConverter>();
+        builder.Services.AddSingleton<ITxtConverter, TxtConverter>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
