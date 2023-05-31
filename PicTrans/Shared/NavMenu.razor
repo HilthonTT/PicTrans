@@ -16,25 +16,3 @@
     <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Inherit" @onclick="LoadSettingsPage" />
 </MudAppBar>
 
-@code {
-    private void LoadHomePage()
-    {
-        navManager.NavigateTo("/");
-    }
-
-
-    private void LoadFileConverterPage()
-    {
-        navManager.NavigateTo("/FileConverter");
-    }
-
-    private void LoadAuthorGithubPage()
-    {
-        navManager.NavigateTo("https://github.com/HilthonTT");
-    }
-
-    private void LoadSettingsPage()
-    {
-        navManager.NavigateTo("/Settings");
-    }
-}
