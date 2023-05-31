@@ -118,7 +118,8 @@
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
                 <ImageFile 
                     BrowserFile="f" 
-                    SelectedPath="@selectedPath"/>
+                    SelectedPath="@selectedPath" 
+                    OnRemoveImage="RemoveImageFile"/>
             </MudVirtualize>
         </MudItem>
     </MudGrid>
@@ -268,6 +269,11 @@
             downloadedFiles.Add(f);
             CalculateProgress(downloadedFiles.Count);
         }
+    }
+
+    private void RemoveImageFile(IBrowserFile imageFile)
+    {
+        files.Remove(imageFile);
     }
 
     private string GetButtonClass(string path)

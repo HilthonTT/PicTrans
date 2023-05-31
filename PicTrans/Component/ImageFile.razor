@@ -22,7 +22,9 @@
             <MudText Typo="Typo.body2">Size: @BrowserFile.Size bytes</MudText>
         </CardHeaderContent>
         <CardHeaderActions>
-            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Default" />
+            <MudIconButton @onclick="RemoveImage"
+                Icon="@Icons.Material.Filled.RemoveCircleOutline" 
+                Color="MudBlazor.Color.Default" />
         </CardHeaderActions>
     </MudCardHeader>
     @if (string.IsNullOrWhiteSpace(sourcePath))
@@ -44,14 +46,37 @@
             }
         </MudSelect>
     </div>
-    <MudCardActions>
-        <MudButton 
-            Variant="Variant.Text" 
-            Color="MudBlazor.Color.Primary" 
-            OnClick="ConvertAndDownload">
-            Convert And Download
-        </MudButton>
-    </MudCardActions>
+    <div class="d-flex justify-content-between align-items-start">
+        <MudCardActions>
+            <MudButton Variant="Variant.Text"
+                       Color="MudBlazor.Color.Primary"
+                       OnClick="ConvertAndDownload">
+                Convert And Download
+            </MudButton>
+            
+            @if (isCompressedOption)
+            {
+                <MudNumericField @bind-Value="maxWidth"
+                    Label="Max Width"
+                    Variant="Variant.Text"
+                    Min="1"
+                    Max="6000"
+                    Required="true" />
+                <MudNumericField @bind-Value="maxHeight"
+                    Label="Max Height"
+                    Variant="Variant.Text"
+                    Min="1"
+                    Max="5000"
+                    Required="true" />
+            }
+        </MudCardActions>
+        <div>
+            <MudSwitch 
+                @bind-Checked="isCompressedOption" 
+                Label="Compress Image" 
+                Color="MudBlazor.Color.Primary" />
+        </div>
+    </div>
 </MudCard>
 
 @code {
@@ -63,6 +88,13 @@
     [EditorRequired]
     public string SelectedPath { get; set; }
 
+    [Parameter]
+    [EditorRequired]
+    public EventCallback<IBrowserFile> OnRemoveImage { get; set; }
+
+    private int maxWidth = 800;
+    private int maxHeight = 800;
+    private bool isCompressedOption = false;
     private IDialogReference dialogReference;
     private string selectedExtension = ".png";
     private string sourcePath = "";
@@ -86,7 +118,14 @@
 
     private async Task ConvertAndDownload()
     {
-        await imageService.ConvertAndDownloadAsync(BrowserFile, SelectedPath, selectedExtension);
+        if (isCompressedOption)
+        {
+            await imageService.CompressImageAndDownloadAsync(BrowserFile, SelectedPath, selectedExtension, maxWidth, maxHeight);
+        }
+        else
+        {
+            await imageService.ConvertAndDownloadAsync(BrowserFile, SelectedPath, selectedExtension);
+        }
         OpenDialog($"Successfully downloaded {BrowserFile.Name}");
     }
 
@@ -94,5 +133,10 @@
     {
         var topCenter = new DialogOptions() { Position = DialogPosition.TopCenter, ClassBackground = "backdrop-blur" };
         dialogReference = dialogService.Show<Dialog>(title, topCenter);
+    }
+
+    private async Task RemoveImage()
+    {
+        await OnRemoveImage.InvokeAsync(BrowserFile);
     }
 }

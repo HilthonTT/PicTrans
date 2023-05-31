@@ -6,7 +6,7 @@
 <MudContainer>
     <h1 class="text-uppercase text-center">
         Convert Files
-        <MudIcon Icon="@Icons.Material.Filled.FileDownload" Title="File Download" />
+        <MudIcon Icon="@Icons.Material.Filled.Image" Title="File Download" />
     </h1>
     @if (string.IsNullOrWhiteSpace(errorMessage) is false)
     {
@@ -67,16 +67,23 @@
                 <div></div> <!-- Add an empty div to create spaces -->
                 <div></div> <!-- Add an empty div to create spaces -->
                 <div class="center-children">
-                    <!-- Center the button group -->
                     <MudButtonGroup Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OverrideStyles="false" Class="mt-2">
                         <div class="d-flex justify-content-center">
-                            <!-- Center the buttons -->
-                            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" OnClick="ConvertAndDownloadFiles">
-                                Download
-                            </MudButton>
                             @if (files.Count > 0)
                             {
-                                <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ClearFiles">
+                                <MudButton 
+                                    Variant="Variant.Outlined" 
+                                    Color="MudBlazor.Color.Primary" 
+                                    OnClick="ConvertAndDownloadFiles">
+                                    Download
+                                </MudButton>
+                            }
+                            @if (files.Count > 0)
+                            {
+                                <MudButton 
+                                    Variant="Variant.Outlined" 
+                                    Color="MudBlazor.Color.Error"
+                                    OnClick="ClearFiles">
                                     Clear
                                 </MudButton>
                             }
@@ -93,7 +100,8 @@
             <MudVirtualize Items="files" Context="f" OverscanCount="10">
                 <File 
                     BrowserFile="f"
-                    SelectedPath="@selectedFilePath" />
+                    SelectedPath="@selectedFilePath"
+                    OnRemoveFile="RemoveFile" />
             </MudVirtualize>
         </MudItem>
     </MudGrid>
@@ -211,6 +219,11 @@
             downloadedFiles.Add(f);
             CalculateProgress(downloadedFiles.Count);
         }
+    }
+
+    private void RemoveFile(IBrowserFile inputFile)
+    {
+        files.Remove(inputFile);
     }
 
     private string GetButtonClass(string path)

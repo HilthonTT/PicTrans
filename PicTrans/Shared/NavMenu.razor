@@ -2,25 +2,15 @@
 
 <MudAppBar Color="MudBlazor.Color.Primary" Fixed="false">
     <MudIconButton 
-            Icon="@Icons.Material.Filled.Home" 
+            Icon="@Icons.Material.Filled.Image" 
             Color="MudBlazor.Color.Inherit" 
             Edge="Edge.Start"
             @onclick="LoadHomePage" />
-        <MudIconButton 
-            Icon="@Icons.Material.Filled.Compress" 
-            Color="MudBlazor.Color.Inherit" 
-            Edge="Edge.Start"
-            @onclick="LoadCompressorPage" />
         <MudIconButton 
             Icon="@Icons.Material.Filled.FileDownload" 
             Color="MudBlazor.Color.Inherit" 
             Edge="Edge.Start"
             @onclick="LoadFileConverterPage" />
-        <MudIconButton 
-            Icon="@Icons.Material.Filled.List" 
-            Color="MudBlazor.Color.Inherit" 
-            Edge="Edge.Start"
-            @onclick="LoadStatusPage" />
     <MudSpacer />
     <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="MudBlazor.Color.Inherit" @onclick="LoadAuthorGithubPage"/>
     <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="MudBlazor.Color.Inherit" @onclick="LoadSettingsPage" />
@@ -32,15 +22,6 @@
         navManager.NavigateTo("/");
     }
 
-    private void LoadCompressorPage()
-    {
-        navManager.NavigateTo("/Compressor");
-    }
-
-    private void LoadStatusPage()
-    {
-        navManager.NavigateTo("/Status");
-    }
 
     private void LoadFileConverterPage()
     {
